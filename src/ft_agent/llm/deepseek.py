@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from openai import OpenAI
@@ -6,6 +6,7 @@ from openai import OpenAI
 from ft_agent.config import DeepSeekConfig, load_deepseek_config
 
 Message = Mapping[str, str]
+DeltaHandler = Callable[[str], None]
 
 
 def create_deepseek_client(config: DeepSeekConfig | None = None) -> OpenAI:
@@ -29,12 +30,15 @@ class DeepSeekLLM:
         tools: Sequence[Mapping[str, Any]] | None = None,
         tool_choice: str | Mapping[str, Any] | None = None,
         thinking: bool = False,
+        stream: bool = False,
+        on_delta: DeltaHandler | None = None,
         **kwargs: Any,
     ) -> str:
         request: dict[str, Any] = {
             "model": self.config.model,
             "messages": list(messages),
             "extra_body": {"thinking": {"type": "enabled" if thinking else "disabled"}},
+            "stream": stream,
             **kwargs,
         }
         if tools is not None:
@@ -43,4 +47,20 @@ class DeepSeekLLM:
             request["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**request)
+        if stream:
+            return self._collect_stream(response, on_delta)
         return response.choices[0].message.content or ""
+
+    @staticmethod
+    def _collect_stream(response: Any, on_delta: DeltaHandler | None = None) -> str:
+        chunks: list[str] = []
+        for event in response:
+            if not event.choices:
+                continue
+            delta = event.choices[0].delta.content or ""
+            if not delta:
+                continue
+            chunks.append(delta)
+            if on_delta is not None:
+                on_delta(delta)
+        return "".join(chunks)

@@ -32,7 +32,11 @@ def remember_turn(payload: dict) -> dict:
 
 def build_chat_flow() -> Flow:
     route_node = CallableNode(route_input)
-    llm_node = LLMNode(llm=DeepSeekLLM(), messages=build_messages)
+    llm_node = LLMNode(
+        llm=DeepSeekLLM(),
+        messages=build_messages,
+        chat_kwargs={"stream": True, "temperature": 0},
+    )
     remember_node = CallableNode(remember_turn)
 
     route_node - "chat" >> llm_node >> remember_node
@@ -40,11 +44,17 @@ def build_chat_flow() -> Flow:
 
 
 def run_once(agent: Agent, history: list[dict[str, str]], user_input: str) -> bool:
-    result = agent.run({"input": user_input, "history": history})
+    result = agent.run(
+        {
+            "input": user_input,
+            "history": history,
+            "chat_kwargs": {"on_delta": lambda delta: print(delta, end="", flush=True)},
+        }
+    )
     payload = result.payload
     if result.action == "exit":
         return False
-    print(payload["answer"])
+    print()
     return True
 
 
