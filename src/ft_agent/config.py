@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 class DeepSeekConfig:
     api_key: str
     base_url: str = "https://api.deepseek.com"
-    model: str = "deepseek-v4-flash"
+    model: str = "deepseek-v4-pro"
 
 
 def load_deepseek_config() -> DeepSeekConfig:

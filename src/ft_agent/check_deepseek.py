@@ -17,9 +17,12 @@ def main() -> None:
             ],
             max_tokens=128,
             temperature=0,
+            extra_body={"thinking": {"type": "disabled"}},
         )
     except AuthenticationError as exc:
-        raise SystemExit("DeepSeek authentication failed. Check DEEPSEEK_API_KEY.") from exc
+        raise SystemExit(
+            "DeepSeek authentication failed. Check DEEPSEEK_API_KEY."
+        ) from exc
     except BadRequestError as exc:
         raise SystemExit(f"DeepSeek request failed: {exc.message}") from exc
     except APIError as exc:
