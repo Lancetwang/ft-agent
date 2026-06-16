@@ -1,40 +1,49 @@
-import json
-
 from ft_agent import Agent
-from ft_agent.core import CallableNode, Flow
-from ft_agent.tools import ToolCallNode
+from ft_agent.core import Flow
+from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
+from ft_agent.tools import ToolCallNode, ToolExecutor, get_builtin_tools
 
 
-def mock_assistant_tool_call(payload: dict) -> tuple[str, dict]:
-    payload["assistant_message"] = {
-        "role": "assistant",
-        "content": "",
-        "tool_calls": [
-            {
-                "id": "call_weather_1",
-                "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "arguments": json.dumps({"city": payload["city"]}),
-                },
-            }
-        ],
-    }
-    return "tool_call", payload
+SYSTEM_PROMPT = (
+    "You are a weather assistant. When the user asks about weather, you must call "
+    "the get_weather tool before answering. After receiving tool results, answer "
+    "briefly using the tool result. Do not mention that the tool is mocked unless "
+    "the result says so."
+)
 
 
-def answer_from_tool_result(payload: dict) -> dict:
-    result = payload["tool_results"][0]
-    payload["answer"] = f"Weather result: {result.content}"
-    return payload
+def build_messages(payload: dict) -> list[dict[str, str]]:
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(payload.get("history", []))
+    return messages
 
 
-request_node = CallableNode(mock_assistant_tool_call)
-tool_node = ToolCallNode(next_action="answer")
-answer_node = CallableNode(answer_from_tool_result)
+def build_weather_agent() -> Agent:
+    tools = get_builtin_tools()
+    llm_node = ToolAwareLLMNode(
+        llm=DeepSeekLLM(),
+        messages=build_messages,
+        tools=[tool.to_llm_format() for tool in tools],
+        chat_kwargs={"temperature": 0, "tool_choice": "auto"},
+    )
+    tool_node = ToolCallNode(executor=ToolExecutor(tools))
 
-request_node - "tool_call" >> tool_node
-tool_node - "answer" >> answer_node
+    llm_node - "tool_call" >> tool_node
+    tool_node - "chat" >> llm_node
 
-result = Agent(Flow(request_node)).run({"city": "Shanghai", "history": []})
-print(result.payload["answer"])
+    return Agent(Flow(llm_node))
+
+
+if __name__ == "__main__":
+    agent = build_weather_agent()
+    result = agent.run(
+        {
+            "history": [
+                {
+                    "role": "user",
+                    "content": "What is the weather in Shanghai? Use the weather tool.",
+                }
+            ]
+        }
+    )
+    print(result.payload["answer"])

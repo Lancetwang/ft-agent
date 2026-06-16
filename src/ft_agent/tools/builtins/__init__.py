@@ -6,7 +6,10 @@ def get_builtin_tools() -> list[Tool]:
     return [
         Tool(
             name="get_weather",
-            description="Get mocked weather for a city. This does not call a real API.",
+            description=(
+                "Get the weather for a city. Use this whenever the user asks about "
+                "weather. The implementation returns mocked data for examples."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
