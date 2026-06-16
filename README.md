@@ -18,7 +18,7 @@ Set `DEEPSEEK_API_KEY` in the local `.env` file. The `.env` file is ignored by G
 The default DeepSeek settings are:
 
 - `DEEPSEEK_BASE_URL=https://api.deepseek.com`
-- `DEEPSEEK_MODEL=deepseek-v4-pro`
+- `DEEPSEEK_MODEL=deepseek-v4-flash`
 
 Run the API check:
 
