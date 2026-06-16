@@ -1,17 +1,18 @@
 """ft-agent package."""
 
 from ft_agent.agent import Agent
-from ft_agent.core import CallableNode, Context, Flow, FlowError, FlowRunResult, Node, NodeResult
+from ft_agent.core import Action, CallableNode, ExecResult, Flow, FlowError, FlowRunResult, Node, Payload
 
 __all__ = [
+    "Action",
     "Agent",
     "CallableNode",
-    "Context",
+    "ExecResult",
     "Flow",
     "FlowError",
     "FlowRunResult",
     "Node",
-    "NodeResult",
+    "Payload",
     "__version__",
 ]
 

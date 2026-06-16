@@ -33,9 +33,15 @@ The project is organized around a small node-flow agent runtime:
 - `src/ft_agent/core/`: node and flow abstractions
 - `src/ft_agent/llm/`: model calls and LLM-backed nodes
 - `src/ft_agent/agent.py`: thin agent runner over a flow
+- `src/ft_agent/util/`: project utilities and checks
 - `examples/`: runnable sketches for flow composition
 
-Each node returns a `NodeResult` with one `route`. The `Flow` resolves that route through its transition table, so each case maps to at most one next node.
+Each node returns `(action, payload)`. The `Flow` follows `node.successors[action]`, so each action maps to at most one next node.
+
+```python
+classify_node - "question" >> answer_question_node
+classify_node - "statement" >> answer_statement_node
+```
 
 Run the local flow example:
 

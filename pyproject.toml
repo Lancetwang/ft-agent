@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ft-agent-check = "ft_agent.check_deepseek:main"
+ft-agent-check = "ft_agent.util.check_deepseek:main"
 
 [build-system]
 requires = ["hatchling"]

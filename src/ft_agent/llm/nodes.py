@@ -1,25 +1,26 @@
 from collections.abc import Callable, Sequence
 
-from ft_agent.core.node import Context, Node, NodeResult
+from ft_agent.core import ExecResult, Node, Payload
 from ft_agent.llm.deepseek import DeepSeekLLM, Message
 
 
 class LLMNode(Node):
     def __init__(
         self,
-        name: str,
         *,
         llm: DeepSeekLLM,
-        messages: Callable[[Context], Sequence[Message]],
+        messages: Callable[[Payload], Sequence[Message]],
         output_key: str = "answer",
-        route: str = "default",
+        action: str = "default",
     ) -> None:
-        super().__init__(name)
+        super().__init__()
         self.llm = llm
         self.messages = messages
         self.output_key = output_key
-        self.route = route
+        self.action = action
 
-    def run(self, context: Context) -> NodeResult:
-        content = self.llm.chat(self.messages(context), temperature=0)
-        return NodeResult(route=self.route, output=content, updates={self.output_key: content})
+    def exec(self, payload: Payload) -> ExecResult:
+        state = dict(payload or {})
+        content = self.llm.chat(self.messages(state), temperature=0)
+        state[self.output_key] = content
+        return self.action, state

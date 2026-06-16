@@ -1,43 +1,70 @@
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from __future__ import annotations
+
+from collections.abc import Callable
 from typing import Any
+import time
+
+Action = str
+Payload = Any
+ExecResult = tuple[Action, Payload]
 
 
-Context = dict[str, Any]
+class Node:
+    def __init__(self, *, max_retries: int = 1, wait: float = 0) -> None:
+        if max_retries < 1:
+            raise ValueError("max_retries must be at least 1.")
+        self.successors: dict[Action, Node] = {}
+        self._action: Action = "default"
+        self.max_retries = max_retries
+        self.wait = wait
 
-
-@dataclass(frozen=True)
-class NodeResult:
-    route: str = "default"
-    output: Any = None
-    updates: Mapping[str, Any] = field(default_factory=dict)
-
-
-class Node(ABC):
-    def __init__(self, name: str) -> None:
-        if not name:
-            raise ValueError("Node name cannot be empty.")
-        self.name = name
-
-    @abstractmethod
-    def run(self, context: Context) -> NodeResult:
+    def exec(self, payload: Payload) -> ExecResult:
         raise NotImplementedError
+
+    def _exec(self, payload: Payload) -> ExecResult:
+        for attempt in range(self.max_retries):
+            try:
+                return self.exec(payload)
+            except Exception:
+                if attempt == self.max_retries - 1:
+                    raise
+                if self.wait > 0:
+                    time.sleep(self.wait)
+        raise RuntimeError("Unexpected error in Node._exec")
+
+    def __rshift__(self, other: Node) -> Node:
+        self.successors[self._action] = other
+        self._action = "default"
+        return other
+
+    def __sub__(self, action: Action) -> Node:
+        if not isinstance(action, str):
+            raise TypeError("action must be a string.")
+        self._action = action or "default"
+        return self
 
 
 class CallableNode(Node):
     def __init__(
         self,
-        name: str,
-        fn: Callable[[Context], NodeResult | Mapping[str, Any] | Any],
+        fn: Callable[[Payload], ExecResult | Payload],
+        *,
+        max_retries: int = 1,
+        wait: float = 0,
     ) -> None:
-        super().__init__(name)
-        self._fn = fn
+        super().__init__(max_retries=max_retries, wait=wait)
+        self.fn = fn
 
-    def run(self, context: Context) -> NodeResult:
-        result = self._fn(context)
-        if isinstance(result, NodeResult):
+    def exec(self, payload: Payload) -> ExecResult:
+        result = self.fn(payload)
+        if self._is_exec_result(result):
             return result
-        if isinstance(result, Mapping):
-            return NodeResult(updates=result)
-        return NodeResult(output=result)
+        return "default", result
+
+    @staticmethod
+    def _is_exec_result(value: Any) -> bool:
+        return (
+            isinstance(value, tuple)
+            and len(value) == 2
+            and isinstance(value[0], str)
+        )

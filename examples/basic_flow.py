@@ -1,38 +1,31 @@
 from ft_agent import Agent
-from ft_agent.core import CallableNode, Flow, NodeResult
+from ft_agent.core import CallableNode, Flow
 
 
-def classify(context: dict) -> NodeResult:
-    text = context["input"]
+def classify(payload: dict) -> tuple[str, dict]:
+    text = payload["input"]
     route = "question" if text.endswith("?") else "statement"
-    return NodeResult(route=route, updates={"kind": route})
+    payload["kind"] = route
+    return route, payload
 
 
-def answer_question(context: dict) -> dict:
-    return {"reply": f"Question received: {context['input']}"}
+def answer_question(payload: dict) -> dict:
+    payload["reply"] = f"Question received: {payload['input']}"
+    return payload
 
 
-def answer_statement(context: dict) -> dict:
-    return {"reply": f"Statement received: {context['input']}"}
+def answer_statement(payload: dict) -> dict:
+    payload["reply"] = f"Statement received: {payload['input']}"
+    return payload
 
 
-flow = Flow(
-    nodes=[
-        CallableNode("classify", classify),
-        CallableNode("answer_question", answer_question),
-        CallableNode("answer_statement", answer_statement),
-    ],
-    start="classify",
-    transitions={
-        "classify": {
-            "question": "answer_question",
-            "statement": "answer_statement",
-        },
-        "answer_question": {"default": None},
-        "answer_statement": {"default": None},
-    },
-)
+classify_node = CallableNode(classify)
+question_node = CallableNode(answer_question)
+statement_node = CallableNode(answer_statement)
 
-result = Agent(flow).run({"input": "Hello?"})
-print(result.context["reply"])
+classify_node - "question" >> question_node
+classify_node - "statement" >> statement_node
+
+result = Agent(Flow(classify_node)).run({"input": "Hello?"})
+print(result.payload["reply"])
 print(result.path)
