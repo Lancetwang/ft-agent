@@ -62,3 +62,9 @@ Run the mocked weather tool flow:
 ```powershell
 uv run python examples/weather_tool_flow.py
 ```
+
+Run the multi-turn tool chatbot:
+
+```powershell
+uv run python examples/tool_chatbot.py
+```

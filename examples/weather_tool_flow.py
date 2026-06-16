@@ -1,7 +1,7 @@
 from ft_agent import Agent
 from ft_agent.core import Flow
 from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
-from ft_agent.tools import ToolCallNode, ToolExecutor, get_builtin_tools
+from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
 
 
 SYSTEM_PROMPT = (
@@ -18,8 +18,40 @@ def build_messages(payload: dict) -> list[dict[str, str]]:
     return messages
 
 
+def get_weather(city: str) -> dict[str, str]:
+    return {
+        "city": city,
+        "condition": "sunny",
+        "temperature": "24C",
+        "source": "mock",
+    }
+
+
+def build_tools() -> list[Tool]:
+    return [
+        Tool(
+            name="get_weather",
+            description=(
+                "Get the weather for a city. Use this whenever the user asks about "
+                "weather. The implementation returns mocked data for this example."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "City name, such as Shanghai or Tokyo.",
+                    }
+                },
+                "required": ["city"],
+            },
+            fn=get_weather,
+        )
+    ]
+
+
 def build_weather_agent() -> Agent:
-    tools = get_builtin_tools()
+    tools = build_tools()
     llm_node = ToolAwareLLMNode(
         llm=DeepSeekLLM(),
         messages=build_messages,

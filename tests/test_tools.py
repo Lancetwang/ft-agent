@@ -1,11 +1,28 @@
 import unittest
 
-from ft_agent.tools import ToolCallNode, ToolExecutor, get_builtin_tools
+from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
+
+
+def get_weather(city: str) -> dict[str, str]:
+    return {"city": city, "condition": "sunny", "source": "mock"}
+
+
+def weather_tool() -> Tool:
+    return Tool(
+        name="get_weather",
+        description="Get mocked weather.",
+        parameters={
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+        fn=get_weather,
+    )
 
 
 class ToolTests(unittest.TestCase):
-    def test_builtin_weather_tool(self) -> None:
-        tool = get_builtin_tools()[0]
+    def test_tool_executes_function(self) -> None:
+        tool = weather_tool()
 
         result = tool.execute(city="Shanghai")
 
@@ -14,7 +31,7 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(result["source"], "mock")
 
     def test_executor_runs_openai_style_tool_call(self) -> None:
-        executor = ToolExecutor()
+        executor = ToolExecutor([weather_tool()])
         assistant_message = {
             "tool_calls": [
                 {
@@ -55,7 +72,7 @@ class ToolTests(unittest.TestCase):
         self.assertIn("not found", result.content)
 
     def test_tool_call_node_appends_tool_messages(self) -> None:
-        node = ToolCallNode(next_action="chat")
+        node = ToolCallNode(executor=ToolExecutor([weather_tool()]), next_action="chat")
         payload = {
             "assistant_message": {
                 "tool_calls": [

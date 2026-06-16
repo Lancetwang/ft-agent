@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ft_agent.tools.base import Tool
-from ft_agent.tools.builtins import get_builtin_tools
 
 
 @dataclass(frozen=True)
@@ -47,7 +46,7 @@ class ToolResult:
 
 class ToolExecutor:
     def __init__(self, tools: Sequence[Tool] | None = None) -> None:
-        self.tools = list(tools or get_builtin_tools())
+        self.tools = list(tools or [])
         self.tool_map = {tool.name: tool for tool in self.tools}
 
     def parse_tool_calls(self, assistant_message: dict[str, Any]) -> list[ToolCall]:
