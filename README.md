@@ -25,3 +25,20 @@ Run the API check:
 ```powershell
 uv run ft-agent-check
 ```
+
+## Project Shape
+
+The project is organized around a small node-flow agent runtime:
+
+- `src/ft_agent/core/`: node and flow abstractions
+- `src/ft_agent/llm/`: model calls and LLM-backed nodes
+- `src/ft_agent/agent.py`: thin agent runner over a flow
+- `examples/`: runnable sketches for flow composition
+
+Each node returns a `NodeResult` with one `route`. The `Flow` resolves that route through its transition table, so each case maps to at most one next node.
+
+Run the local flow example:
+
+```powershell
+uv run python examples/basic_flow.py
+```
