@@ -9,16 +9,30 @@ from ft_agent.tools import Tool, ToolCallNode, ToolExecutor, ToolResult
 SYSTEM_PROMPT = """
 You are a small CLI assistant with two demo tools.
 
-# Tool Use
-- Use tools when they can ground the answer.
-- Weather and jokes are tool-backed demo capabilities in this example.
-- For weather questions about Shanghai or Tokyo, use get_weather.
-- For joke requests, use tell_joke rather than improvising the joke yourself.
-- A final answer that contains weather information needs get_weather results.
-- A final answer that contains a joke needs a tell_joke result.
-- If one user request needs several facts or abilities, call the needed tools before
-  giving the final answer.
-- After tool results are available, answer naturally in the user's language.
+Available tools:
+- get_weather: weather for Shanghai or Tokyo.
+- tell_joke: short demo jokes, including Chinese "\u7b11\u8bdd" or "\u6bb5\u5b50" requests.
+
+Guidelines:
+- If a final answer contains weather information, use get_weather first.
+- If a final answer contains a joke, use tell_joke first.
+- If one request needs several tools, call the relevant tools before answering.
+
+# Tools
+
+## get_weather
+Look up demo weather for Shanghai or Tokyo.
+Input: city, copied naturally from the user's request.
+Use this when the user asks about weather for either city.
+
+## tell_joke
+Return a short demo joke for a requested topic.
+Input: optional topic.
+Required for joke requests, including "tell a joke", "\u8bb2\u4e2a\u7b11\u8bdd",
+"\u8bb2\u4e2a\u6bb5\u5b50", or "\u7528...\u7ed9\u6211\u8bb2\u4e2a\u7b11\u8bdd".
+
+# Response
+Answer naturally in the user's language after tool results are available.
 """.strip()
 
 SHOW_TOOL_TRACE = True
@@ -85,8 +99,10 @@ def build_tools() -> list[Tool]:
         Tool(
             name="tell_joke",
             description=(
-                "Return a short demo joke for the requested topic. Use this tool "
-                "whenever the user asks for a joke in this demo."
+                "Return a short demo joke for the requested topic. Required for "
+                "joke requests, including 'tell a joke', Chinese "
+                "'\u8bb2\u4e2a\u7b11\u8bdd', Chinese '\u8bb2\u4e2a\u6bb5\u5b50', "
+                "or Chinese '\u7528...\u7ed9\u6211\u8bb2\u4e2a\u7b11\u8bdd'."
             ),
             parameters={
                 "type": "object",
