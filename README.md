@@ -30,7 +30,7 @@ uv run ft-agent-check
 
 The project is organized around a small node-flow agent runtime:
 
-- `src/ft_agent/core/`: node and flow abstractions
+- `src/ft_agent/core/node.py`: node and flow abstractions
 - `src/ft_agent/llm/`: model calls and LLM-backed nodes
 - `src/ft_agent/agent.py`: thin agent runner over a flow
 - `src/ft_agent/util/`: project utilities and checks

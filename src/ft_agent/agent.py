@@ -1,5 +1,4 @@
-from ft_agent.core.flow import Flow, FlowRunResult
-from ft_agent.core.node import Payload
+from ft_agent.core import Flow, FlowRunResult, Payload
 
 
 class Agent:
