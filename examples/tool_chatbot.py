@@ -3,40 +3,54 @@ import sys
 from ft_agent import Agent
 from ft_agent.core import Flow
 from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
-from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
+from ft_agent.tools import Tool, ToolCallNode, ToolExecutor, ToolResult
 
-SYSTEM_PROMPT = (
-    "You are a concise assistant with tools. Use get_weather for weather questions "
-    "about Shanghai or Tokyo, including Chinese city names 上海 and 东京. Never answer "
-    "a weather question from memory; call get_weather first. Never write a joke from "
-    "memory; call tell_joke for every joke request, including Chinese requests that "
-    "use words like 笑话 or 段子. If a user asks for both weather and a joke, call the "
-    "needed weather tools and tell_joke before answering. The answer is incomplete "
-    "until all requested tool results are in history. After tool results are available, "
-    "answer naturally and briefly."
-)
+
+SYSTEM_PROMPT = """
+You are a small CLI assistant with two demo tools.
+
+# Tool Use
+- Use tools when they can ground the answer.
+- Weather and jokes are tool-backed demo capabilities in this example.
+- For weather questions about Shanghai or Tokyo, use get_weather.
+- For joke requests, use tell_joke rather than improvising the joke yourself.
+- A final answer that contains weather information needs get_weather results.
+- A final answer that contains a joke needs a tell_joke result.
+- If one user request needs several facts or abilities, call the needed tools before
+  giving the final answer.
+- After tool results are available, answer naturally in the user's language.
+""".strip()
+
+SHOW_TOOL_TRACE = True
 
 
 def get_weather(city: str) -> dict[str, str]:
-    normalized_city = normalize_city(city)
+    city_name = normalize_city(city)
     weather = {
         "Shanghai": {"condition": "sunny", "temperature": "24C"},
         "Tokyo": {"condition": "rainy", "temperature": "18C"},
     }
-    result = weather.get(normalized_city, {"condition": "unknown", "temperature": "unknown"})
-    return {"city": normalized_city, "input_city": city, **result, "source": "mock"}
+    result = weather.get(city_name)
+    if result is None:
+        return {
+            "city": city,
+            "status": "unsupported_city",
+            "supported_cities": ["Shanghai", "Tokyo"],
+            "source": "mock",
+        }
+    return {"city": city_name, "input_city": city, **result, "source": "mock"}
 
 
 def normalize_city(city: str) -> str:
     aliases = {
         "shanghai": "Shanghai",
-        "上海": "Shanghai",
-        "上海市": "Shanghai",
+        "\u4e0a\u6d77": "Shanghai",
+        "\u4e0a\u6d77\u5e02": "Shanghai",
         "tokyo": "Tokyo",
-        "东京": "Tokyo",
-        "東京": "Tokyo",
+        "\u4e1c\u4eac": "Tokyo",
+        "\u6771\u4eac": "Tokyo",
     }
-    return aliases.get(city.strip().lower(), city)
+    return aliases.get(city.strip().lower(), city.strip())
 
 
 def tell_joke(topic: str = "weather") -> dict[str, str]:
@@ -52,15 +66,16 @@ def build_tools() -> list[Tool]:
         Tool(
             name="get_weather",
             description=(
-                "Get mocked weather for Shanghai/上海 or Tokyo/东京. Use this before "
-                "answering any weather question about those cities."
+                "Look up demo weather for Shanghai or Tokyo. The city argument can be "
+                "the city name from the user's message, such as Shanghai, Tokyo, "
+                "Chinese Shanghai, or Chinese Tokyo."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "City name. Supported: Shanghai, 上海, Tokyo, 东京.",
+                        "description": "City name from the user request.",
                     }
                 },
                 "required": ["city"],
@@ -70,15 +85,15 @@ def build_tools() -> list[Tool]:
         Tool(
             name="tell_joke",
             description=(
-                "Tell a short mocked joke. Use this for every joke request; the "
-                "assistant should not invent jokes without calling this tool."
+                "Return a short demo joke for the requested topic. Use this tool "
+                "whenever the user asks for a joke in this demo."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "description": "Optional joke topic.",
+                        "description": "Optional joke topic from the user request.",
                     }
                 },
             },
@@ -115,9 +130,16 @@ def run_turn(agent: Agent, history: list[dict[str, str]], user_input: str) -> bo
 
     history.append({"role": "user", "content": user_input})
     result = agent.run({"history": history})
-    answer = result.payload["answer"]
-    safe_print(answer)
+    if SHOW_TOOL_TRACE:
+        print_tool_trace(result.payload.get("tool_results", []))
+    safe_print(result.payload["answer"])
     return True
+
+
+def print_tool_trace(results: list[ToolResult]) -> None:
+    for result in results:
+        status = "error" if result.is_error else "ok"
+        safe_print(f"[tool:{status}] {result.content}")
 
 
 def safe_print(text: str) -> None:
@@ -152,5 +174,4 @@ def run_interactive() -> None:
 
 
 if __name__ == "__main__":
-    # run_scripted_demo()
     run_interactive()
