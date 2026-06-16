@@ -68,6 +68,35 @@ class DeepSeekLLMTests(unittest.TestCase):
         self.assertEqual(seen, ["o", "k"])
         self.assertTrue(client.chat.completions.last_request["stream"])
 
+    def test_chat_message_keeps_tool_calls(self) -> None:
+        tool_call = {
+            "id": "call_1",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city": "Shanghai"}',
+            },
+        }
+        response = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="", tool_calls=[tool_call]),
+                )
+            ],
+            usage=None,
+        )
+        client = FakeClient(response)
+        llm = DeepSeekLLM(config=DeepSeekConfig(api_key="test"), client=client)
+
+        message = llm.chat_message(
+            [{"role": "user", "content": "weather"}],
+            tools=[{"type": "function", "function": {"name": "get_weather"}}],
+        )
+
+        self.assertEqual(message["role"], "assistant")
+        self.assertEqual(message["tool_calls"], [tool_call])
+        self.assertEqual(client.chat.completions.last_request["tools"][0]["type"], "function")
+
 
 if __name__ == "__main__":
     unittest.main()

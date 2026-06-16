@@ -32,6 +32,7 @@ The project is organized around a small node-flow agent runtime:
 
 - `src/ft_agent/core/node.py`: node and flow abstractions
 - `src/ft_agent/llm/`: model calls and LLM-backed nodes
+- `src/ft_agent/tools/`: tool definitions, tool execution, and tool-call nodes
 - `src/ft_agent/agent.py`: thin agent runner over a flow
 - `src/ft_agent/util/`: project utilities and checks
 - `examples/`: runnable sketches for flow composition
@@ -54,4 +55,10 @@ Run the chatbot example:
 ```powershell
 uv run python examples/chatbot.py
 uv run python examples/chatbot.py "hello"
+```
+
+Run the mocked weather tool flow:
+
+```powershell
+uv run python examples/weather_tool_flow.py
 ```

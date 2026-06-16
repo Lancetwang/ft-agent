@@ -51,6 +51,45 @@ class DeepSeekLLM:
             return self._collect_stream(response, on_delta)
         return response.choices[0].message.content or ""
 
+    def chat_message(
+        self,
+        messages: Sequence[Message],
+        *,
+        tools: Sequence[Mapping[str, Any]] | None = None,
+        tool_choice: str | Mapping[str, Any] | None = None,
+        thinking: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        request: dict[str, Any] = {
+            "model": self.config.model,
+            "messages": list(messages),
+            "extra_body": {"thinking": {"type": "enabled" if thinking else "disabled"}},
+            **kwargs,
+        }
+        if tools is not None:
+            request["tools"] = list(tools)
+        if tool_choice is not None:
+            request["tool_choice"] = tool_choice
+
+        response = self.client.chat.completions.create(**request)
+        message = response.choices[0].message
+        result: dict[str, Any] = {
+            "role": "assistant",
+            "content": message.content or "",
+        }
+
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            result["tool_calls"] = [
+                item.model_dump() if hasattr(item, "model_dump") else item
+                for item in tool_calls
+            ]
+
+        if response.usage:
+            result["usage"] = response.usage.model_dump()
+
+        return result
+
     @staticmethod
     def _collect_stream(response: Any, on_delta: DeltaHandler | None = None) -> str:
         chunks: list[str] = []
