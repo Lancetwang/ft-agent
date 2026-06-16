@@ -5,22 +5,38 @@ from ft_agent.core import Flow
 from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
 from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
 
-
 SYSTEM_PROMPT = (
     "You are a concise assistant with tools. Use get_weather for weather questions "
-    "about Shanghai or Tokyo. Use tell_joke when the user asks for a joke. If a user "
-    "asks for both weather and a joke, you may call both tools before answering. "
-    "After tool results are available, answer naturally and briefly."
+    "about Shanghai or Tokyo, including Chinese city names 上海 and 东京. Never answer "
+    "a weather question from memory; call get_weather first. Never write a joke from "
+    "memory; call tell_joke for every joke request, including Chinese requests that "
+    "use words like 笑话 or 段子. If a user asks for both weather and a joke, call the "
+    "needed weather tools and tell_joke before answering. The answer is incomplete "
+    "until all requested tool results are in history. After tool results are available, "
+    "answer naturally and briefly."
 )
 
 
 def get_weather(city: str) -> dict[str, str]:
+    normalized_city = normalize_city(city)
     weather = {
-        "shanghai": {"condition": "sunny", "temperature": "24C"},
-        "tokyo": {"condition": "rainy", "temperature": "18C"},
+        "Shanghai": {"condition": "sunny", "temperature": "24C"},
+        "Tokyo": {"condition": "rainy", "temperature": "18C"},
     }
-    result = weather.get(city.lower(), {"condition": "unknown", "temperature": "unknown"})
-    return {"city": city, **result, "source": "mock"}
+    result = weather.get(normalized_city, {"condition": "unknown", "temperature": "unknown"})
+    return {"city": normalized_city, "input_city": city, **result, "source": "mock"}
+
+
+def normalize_city(city: str) -> str:
+    aliases = {
+        "shanghai": "Shanghai",
+        "上海": "Shanghai",
+        "上海市": "Shanghai",
+        "tokyo": "Tokyo",
+        "东京": "Tokyo",
+        "東京": "Tokyo",
+    }
+    return aliases.get(city.strip().lower(), city)
 
 
 def tell_joke(topic: str = "weather") -> dict[str, str]:
@@ -35,13 +51,16 @@ def build_tools() -> list[Tool]:
     return [
         Tool(
             name="get_weather",
-            description="Get mocked weather for Shanghai or Tokyo.",
+            description=(
+                "Get mocked weather for Shanghai/上海 or Tokyo/东京. Use this before "
+                "answering any weather question about those cities."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "City name. Supported examples: Shanghai, Tokyo.",
+                        "description": "City name. Supported: Shanghai, 上海, Tokyo, 东京.",
                     }
                 },
                 "required": ["city"],
@@ -50,7 +69,10 @@ def build_tools() -> list[Tool]:
         ),
         Tool(
             name="tell_joke",
-            description="Tell a short mocked joke.",
+            description=(
+                "Tell a short mocked joke. Use this for every joke request; the "
+                "assistant should not invent jokes without calling this tool."
+            ),
             parameters={
                 "type": "object",
                 "properties": {
@@ -130,4 +152,5 @@ def run_interactive() -> None:
 
 
 if __name__ == "__main__":
-    run_scripted_demo()
+    # run_scripted_demo()
+    run_interactive()

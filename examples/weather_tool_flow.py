@@ -6,9 +6,9 @@ from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
 
 SYSTEM_PROMPT = (
     "You are a weather assistant. When the user asks about weather, you must call "
-    "the get_weather tool before answering. After receiving tool results, answer "
-    "briefly using the tool result. Do not mention that the tool is mocked unless "
-    "the result says so."
+    "the get_weather tool before answering. This includes Chinese city names such "
+    "as 上海 and 东京. After receiving tool results, answer briefly using the tool "
+    "result. Do not mention that the tool is mocked unless the result says so."
 )
 
 
@@ -19,12 +19,30 @@ def build_messages(payload: dict) -> list[dict[str, str]]:
 
 
 def get_weather(city: str) -> dict[str, str]:
+    normalized_city = normalize_city(city)
+    weather = {
+        "Shanghai": {"condition": "sunny", "temperature": "24C"},
+        "Tokyo": {"condition": "rainy", "temperature": "18C"},
+    }
+    result = weather.get(normalized_city, {"condition": "unknown", "temperature": "unknown"})
     return {
-        "city": city,
-        "condition": "sunny",
-        "temperature": "24C",
+        "city": normalized_city,
+        "input_city": city,
+        **result,
         "source": "mock",
     }
+
+
+def normalize_city(city: str) -> str:
+    aliases = {
+        "shanghai": "Shanghai",
+        "上海": "Shanghai",
+        "上海市": "Shanghai",
+        "tokyo": "Tokyo",
+        "东京": "Tokyo",
+        "東京": "Tokyo",
+    }
+    return aliases.get(city.strip().lower(), city)
 
 
 def build_tools() -> list[Tool]:
@@ -32,15 +50,15 @@ def build_tools() -> list[Tool]:
         Tool(
             name="get_weather",
             description=(
-                "Get the weather for a city. Use this whenever the user asks about "
-                "weather. The implementation returns mocked data for this example."
+                "Get mocked weather for Shanghai/上海 or Tokyo/东京. Use this whenever "
+                "the user asks about weather for those cities."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "City name, such as Shanghai or Tokyo.",
+                        "description": "City name. Supported: Shanghai, 上海, Tokyo, 东京.",
                     }
                 },
                 "required": ["city"],
