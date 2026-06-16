@@ -11,7 +11,7 @@ You are a small CLI assistant with two demo tools.
 
 Available tools:
 - get_weather: weather for Shanghai or Tokyo.
-- tell_joke: short demo jokes, including Chinese "\u7b11\u8bdd" or "\u6bb5\u5b50" requests.
+- tell_joke: short demo jokes about a requested topic.
 
 Guidelines:
 - If a final answer contains weather information, use get_weather first.
@@ -22,14 +22,13 @@ Guidelines:
 
 ## get_weather
 Look up demo weather for Shanghai or Tokyo.
-Input: city, copied naturally from the user's request.
+Input: city, normalized to one of: Shanghai, Tokyo.
 Use this when the user asks about weather for either city.
 
 ## tell_joke
 Return a short demo joke for a requested topic.
-Input: optional topic.
-Required for joke requests, including "tell a joke", "\u8bb2\u4e2a\u7b11\u8bdd",
-"\u8bb2\u4e2a\u6bb5\u5b50", or "\u7528...\u7ed9\u6211\u8bb2\u4e2a\u7b11\u8bdd".
+Input: optional topic, normalized to English.
+Use this when the user asks for a joke.
 
 # Response
 Answer naturally in the user's language after tool results are available.
@@ -58,11 +57,7 @@ def get_weather(city: str) -> dict[str, str]:
 def normalize_city(city: str) -> str:
     aliases = {
         "shanghai": "Shanghai",
-        "\u4e0a\u6d77": "Shanghai",
-        "\u4e0a\u6d77\u5e02": "Shanghai",
         "tokyo": "Tokyo",
-        "\u4e1c\u4eac": "Tokyo",
-        "\u6771\u4eac": "Tokyo",
     }
     return aliases.get(city.strip().lower(), city.strip())
 
@@ -80,16 +75,16 @@ def build_tools() -> list[Tool]:
         Tool(
             name="get_weather",
             description=(
-                "Look up demo weather for Shanghai or Tokyo. The city argument can be "
-                "the city name from the user's message, such as Shanghai, Tokyo, "
-                "Chinese Shanghai, or Chinese Tokyo."
+                "Look up demo weather for Shanghai or Tokyo. Use the English city "
+                "name as the city argument."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "City name from the user request.",
+                        "enum": ["Shanghai", "Tokyo"],
+                        "description": "English city name.",
                     }
                 },
                 "required": ["city"],
@@ -99,17 +94,15 @@ def build_tools() -> list[Tool]:
         Tool(
             name="tell_joke",
             description=(
-                "Return a short demo joke for the requested topic. Required for "
-                "joke requests, including 'tell a joke', Chinese "
-                "'\u8bb2\u4e2a\u7b11\u8bdd', Chinese '\u8bb2\u4e2a\u6bb5\u5b50', "
-                "or Chinese '\u7528...\u7ed9\u6211\u8bb2\u4e2a\u7b11\u8bdd'."
+                "Return a short demo joke for the requested topic. Use this when "
+                "the user asks for a joke."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "description": "Optional joke topic from the user request.",
+                        "description": "Optional joke topic, normalized to English.",
                     }
                 },
             },

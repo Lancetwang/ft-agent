@@ -11,7 +11,7 @@ You are a weather assistant.
 
 ## get_weather
 Look up demo weather for Shanghai or Tokyo.
-Input: city, copied naturally from the user's request.
+Input: city, normalized to one of: Shanghai, Tokyo.
 Use this when the user asks about weather for either city.
 
 # Response
@@ -45,11 +45,7 @@ def get_weather(city: str) -> dict[str, str]:
 def normalize_city(city: str) -> str:
     aliases = {
         "shanghai": "Shanghai",
-        "\u4e0a\u6d77": "Shanghai",
-        "\u4e0a\u6d77\u5e02": "Shanghai",
         "tokyo": "Tokyo",
-        "\u4e1c\u4eac": "Tokyo",
-        "\u6771\u4eac": "Tokyo",
     }
     return aliases.get(city.strip().lower(), city.strip())
 
@@ -59,15 +55,16 @@ def build_tools() -> list[Tool]:
         Tool(
             name="get_weather",
             description=(
-                "Look up demo weather for Shanghai or Tokyo. The city argument can be "
-                "the city name from the user's message."
+                "Look up demo weather for Shanghai or Tokyo. Use the English city "
+                "name as the city argument."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "city": {
                         "type": "string",
-                        "description": "City name from the user request.",
+                        "enum": ["Shanghai", "Tokyo"],
+                        "description": "English city name.",
                     }
                 },
                 "required": ["city"],
