@@ -48,3 +48,10 @@ Run the local flow example:
 ```powershell
 uv run python examples/basic_flow.py
 ```
+
+Run the chatbot example:
+
+```powershell
+uv run python examples/chatbot.py
+uv run python examples/chatbot.py "hello"
+```
