@@ -2,45 +2,22 @@ import argparse
 import sys
 
 from ft_agent import Agent
-from ft_agent.core import CallableNode, Flow, TraceOptions, make_trace_options
+from ft_agent.core import Flow, TraceOptions, make_trace_options
 from ft_agent.llm import DeepSeekLLM
-from ft_agent.pipeline import PlannerNode, PlannerPlan, RouterDecision, RouterNode, WriterNode
-
-
-def final_irrelevant(payload: dict) -> dict:
-    payload["answer"] = (
-        "This question is not strongly related to Fischer-Tropsch catalysts, "
-        "so I will not route it into the FT catalyst pipeline."
-    )
-    return payload
-
-
-def final_clarify(payload: dict) -> dict:
-    decision: RouterDecision = payload["router_decision"]
-    payload["answer"] = decision.clarification_question or (
-        "Please add the missing catalyst, reaction, or target-performance context."
-    )
-    return payload
-
-
-def final_written(payload: dict) -> dict:
-    payload["answer"] = payload["writer_report"]
-    return payload
+from ft_agent.pipeline import FinalAnswerNode, PlannerNode, PlannerPlan, RouterDecision, RouterNode, WriterNode
 
 
 def build_flow() -> Flow:
     router = RouterNode(llm=DeepSeekLLM())
     planner = PlannerNode(llm=DeepSeekLLM())
     writer = WriterNode(llm=DeepSeekLLM())
-    irrelevant_node = CallableNode(final_irrelevant)
-    clarify_node = CallableNode(final_clarify)
-    written_node = CallableNode(final_written)
+    final_node = FinalAnswerNode(llm=DeepSeekLLM())
 
-    router - "irrelevant" >> irrelevant_node
-    router - "clarify" >> clarify_node
+    router - "irrelevant" >> final_node
+    router - "clarify" >> final_node
     router - "ready" >> planner
     planner - "planned" >> writer
-    writer - "written" >> written_node
+    writer - "written" >> final_node
 
     return Flow(router)
 
@@ -117,6 +94,10 @@ def stream_payload(enabled: bool) -> dict:
         "writer_chat_kwargs": {
             "stream": True,
             "on_delta": make_stream_printer("writer"),
+        },
+        "final_chat_kwargs": {
+            "stream": True,
+            "on_delta": make_stream_printer("final"),
         },
     }
 

@@ -1,3 +1,7 @@
+from ft_agent.pipeline.final import (
+    FINAL_ANSWER_SYSTEM_PROMPT,
+    FinalAnswerNode,
+)
 from ft_agent.pipeline.planner import (
     PlanStep,
     PlannerNode,
@@ -30,6 +34,8 @@ from ft_agent.pipeline.writer import (
 
 __all__ = [
     "PlanStep",
+    "FINAL_ANSWER_SYSTEM_PROMPT",
+    "FinalAnswerNode",
     "PlannerNode",
     "PlannerParseError",
     "PlannerPlan",

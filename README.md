@@ -91,6 +91,7 @@ uv run python examples/ft_router.py "How does cobalt particle size affect methan
 ```
 
 The router owns clarification and will ask up to three follow-up questions before handing off a best-effort deliverable question.
+Questions outside the Fischer-Tropsch catalyst scope are routed to `FinalAnswerNode`, which answers them with a normal LLM call instead of entering the specialist pipeline.
 
 Run the router-to-planner pipeline:
 
