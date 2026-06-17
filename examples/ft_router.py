@@ -41,16 +41,41 @@ def build_flow() -> Flow:
     return Flow(router)
 
 
-def run_once(agent: Agent, question: str, trace: TraceOptions | None = None) -> None:
-    result = agent.run({"question": question}, trace=trace)
-    decision: RouterDecision = result.payload["router_decision"]
+def run_router(payload: dict, agent: Agent, trace: TraceOptions | None = None) -> dict:
+    result = agent.run(payload, trace=trace)
+    print_result(result.payload)
+    return result.payload
+
+
+def print_result(payload: dict) -> None:
+    decision: RouterDecision = payload["router_decision"]
     print(f"route: {decision.action}")
     print(f"relevant: {decision.is_relevant}")
     print(f"needs_clarification: {decision.needs_clarification}")
+    print(f"clarification_rounds: {decision.clarification_rounds}/{decision.max_clarification_rounds}")
+    if decision.max_clarification_reached:
+        print("max_clarification_reached: True")
     if decision.clarification_question:
         print(f"clarification: {decision.clarification_question}")
     print(f"deliverable_question: {decision.deliverable_question}")
-    print(f"answer: {result.payload['answer']}")
+    print(f"answer: {payload['answer']}")
+
+
+def run_conversation(agent: Agent, question: str, trace: TraceOptions | None = None) -> None:
+    payload = {"question": question}
+    while True:
+        payload = run_router(payload, agent, trace=trace)
+        decision: RouterDecision = payload["router_decision"]
+        if decision.action != "clarify":
+            return
+
+        clarification_response = input("clarification> ").strip()
+        if clarification_response.lower() in {"exit", "quit", "q"}:
+            print("bye")
+            return
+        if not clarification_response:
+            continue
+        payload["clarification_response"] = clarification_response
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,7 +91,7 @@ def main() -> None:
     agent = Agent(build_flow())
 
     if args.question:
-        run_once(agent, " ".join(args.question), trace=trace)
+        run_conversation(agent, " ".join(args.question), trace=trace)
         return
 
     print("ft-agent router. Type 'exit' to quit.")
@@ -76,7 +101,7 @@ def main() -> None:
             print("bye")
             break
         if question:
-            run_once(agent, question, trace=trace)
+            run_conversation(agent, question, trace=trace)
 
 
 if __name__ == "__main__":

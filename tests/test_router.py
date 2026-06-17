@@ -5,15 +5,18 @@ from ft_agent.pipeline import RouterDecision, RouterNode, RouterParseError
 
 
 class FakeLLM:
-    def __init__(self, content: str) -> None:
-        self.content = content
+    def __init__(self, content: str | list[str]) -> None:
+        self.contents = content if isinstance(content, list) else [content]
+        self.calls = 0
         self.last_messages = None
         self.last_kwargs = None
 
     def chat(self, messages, **kwargs):
+        content = self.contents[min(self.calls, len(self.contents) - 1)]
+        self.calls += 1
         self.last_messages = messages
         self.last_kwargs = kwargs
-        return self.content
+        return content
 
 
 class RouterTests(unittest.TestCase):
@@ -84,6 +87,84 @@ class RouterTests(unittest.TestCase):
             state["router_decision"].clarification_question,
             "Are you asking about cobalt or iron catalysts?",
         )
+
+    def test_router_uses_clarification_response_for_next_decision(self) -> None:
+        llm = FakeLLM(
+            [
+                """
+                {
+                  "is_relevant": true,
+                  "needs_clarification": true,
+                  "clarification_question": "Are you asking about cobalt or iron catalysts?",
+                  "deliverable_question": "How can I improve FT catalyst performance?"
+                }
+                """,
+                """
+                {
+                  "is_relevant": true,
+                  "needs_clarification": false,
+                  "clarification_question": null,
+                  "deliverable_question": "How can cobalt FT catalyst stability be improved?"
+                }
+                """,
+            ]
+        )
+        node = RouterNode(llm=llm)
+
+        first_action, first_state = node.exec({"question": "How can I improve it?"})
+        second_state = {
+            **first_state,
+            "clarification_response": "I mean cobalt catalyst stability.",
+        }
+        second_action, second_state = node.exec(second_state)
+
+        self.assertEqual(first_action, "clarify")
+        self.assertEqual(second_action, "ready")
+        self.assertEqual(second_state["router_decision"].clarification_rounds, 1)
+        self.assertIn(
+            "User answered: I mean cobalt catalyst stability.",
+            llm.last_messages[1]["content"],
+        )
+        self.assertEqual(
+            second_state["router_decision"].deliverable_question,
+            "How can cobalt FT catalyst stability be improved?",
+        )
+        self.assertNotIn("clarification_response", second_state)
+
+    def test_router_stops_clarifying_after_max_rounds(self) -> None:
+        node = RouterNode(
+            llm=FakeLLM(
+                """
+                {
+                  "is_relevant": true,
+                  "needs_clarification": true,
+                  "clarification_question": "Which catalyst property?",
+                  "deliverable_question": "Improve FT catalyst performance."
+                }
+                """
+            ),
+            max_clarification_rounds=1,
+        )
+        state = {
+            "question": "How can I improve it?",
+            "router_context": {
+                "original_question": "How can I improve it?",
+                "clarification_turns": [
+                    {
+                        "question": "Which catalyst?",
+                        "answer": "Cobalt FT catalyst.",
+                    }
+                ],
+            },
+        }
+
+        action, state = node.exec(state)
+        decision = state["router_decision"]
+
+        self.assertEqual(action, "ready")
+        self.assertTrue(decision.max_clarification_reached)
+        self.assertFalse(decision.needs_clarification)
+        self.assertIsNone(decision.clarification_question)
 
     def test_router_works_in_flow(self) -> None:
         router = RouterNode(

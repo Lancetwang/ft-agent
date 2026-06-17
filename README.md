@@ -90,6 +90,8 @@ Run the Fischer-Tropsch catalyst router:
 uv run python examples/ft_router.py "How does cobalt particle size affect methane selectivity?"
 ```
 
+The router owns clarification and will ask up to three follow-up questions before handing off a best-effort deliverable question.
+
 Enable runtime trace output:
 
 ```powershell
