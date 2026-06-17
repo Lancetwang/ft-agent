@@ -138,6 +138,10 @@ def safe_text(text: str) -> str:
     return text.encode(encoding, errors="replace").decode(encoding)
 
 
+def print_safe(text: str) -> None:
+    print(safe_text(text))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the ft-agent writer example.")
     parser.add_argument("question", nargs="*", help="Question to route, plan, and write.")
@@ -148,7 +152,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    trace = make_trace_options(print_to_console=True) if args.trace else None
+    trace = make_trace_options(print_to_console=True, printer=print_safe) if args.trace else None
     agent = Agent(build_flow())
 
     if args.question:

@@ -13,6 +13,14 @@ from ft_agent.pipeline.router import (
     RouterNode,
     RouterParseError,
 )
+from ft_agent.pipeline.supervisor import (
+    SupervisorCriterion,
+    SupervisorIssue,
+    SupervisorNode,
+    SupervisorParseError,
+    SupervisorReview,
+    default_supervisor_criteria,
+)
 from ft_agent.pipeline.writer import (
     WriterNode,
     default_writer_tools,
@@ -30,9 +38,15 @@ __all__ = [
     "RouterDecision",
     "RouterNode",
     "RouterParseError",
+    "SupervisorCriterion",
+    "SupervisorIssue",
+    "SupervisorNode",
+    "SupervisorParseError",
+    "SupervisorReview",
     "WriterNode",
     "WriterCapability",
     "default_writer_capabilities",
+    "default_supervisor_criteria",
     "default_writer_tools",
     "search_science_knowledge_base",
     "search_template_knowledge_base",

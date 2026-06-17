@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Annotated, Any
 
 from ft_agent.core import ExecResult, Node, Payload
@@ -8,7 +9,7 @@ from ft_agent.core.trace import get_trace_recorder
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
 from ft_agent.pipeline.planner import PlannerPlan
-from ft_agent.tools import Tool, ToolExecutor, ToolResult, tool
+from ft_agent.tools import Tool, ToolCall, ToolExecutor, ToolResult, build_file_tools, tool
 
 
 WRITER_SYSTEM_PROMPT = """
@@ -97,8 +98,12 @@ class WriterNode(Node):
         *,
         llm: DeepSeekLLM,
         tools: Sequence[Tool] | None = None,
+        report_workspace: str | Path = "artifacts",
+        default_report_path: str = "reports/latest.md",
         plan_key: str = "planner_plan",
+        review_key: str = "supervisor_review",
         output_key: str = "writer_report",
+        report_path_key: str = "writer_report_path",
         messages_key: str = "writer_messages",
         tool_results_key: str = "writer_tool_results",
         chat_kwargs_key: str = "writer_chat_kwargs",
@@ -111,10 +116,17 @@ class WriterNode(Node):
         if max_tool_rounds < 0:
             raise ValueError("max_tool_rounds must be non-negative.")
         self.llm = llm
-        self.tools = list(tools or default_writer_tools())
+        self.report_workspace = Path(report_workspace)
+        self.default_report_path = default_report_path
+        if tools is None:
+            self.tools = default_writer_tools(self.report_workspace)
+        else:
+            self.tools = _with_file_tools(tools, self.report_workspace)
         self.executor = ToolExecutor(self.tools)
         self.plan_key = plan_key
+        self.review_key = review_key
         self.output_key = output_key
+        self.report_path_key = report_path_key
         self.messages_key = messages_key
         self.tool_results_key = tool_results_key
         self.chat_kwargs_key = chat_kwargs_key
@@ -191,10 +203,54 @@ class WriterNode(Node):
             final_messages,
             **self._chat_kwargs(state, allow_stream=True),
         )
+        report_path = str(state.get(self.report_path_key) or self.default_report_path)
+        write_result = self._execute_tool(
+            ToolCall(
+                id="writer_write_report",
+                name="write_file",
+                arguments={"path": report_path, "content": report},
+            ),
+            round_index="artifact",
+            recorder=recorder,
+        )
+        tool_results.append(write_result)
         state[self.output_key] = report
+        state[self.report_path_key] = report_path
         state[self.messages_key] = final_messages + [{"role": "assistant", "content": report}]
         state[self.tool_results_key] = tool_results
         return self.action, state
+
+    def _execute_tool(
+        self,
+        tool_call: ToolCall,
+        *,
+        round_index: int | str,
+        recorder: Any,
+    ) -> ToolResult:
+        if recorder is not None:
+            recorder.emit(
+                "tool.call",
+                category="tool",
+                data={
+                    "round": round_index,
+                    "tool_call_id": tool_call.id,
+                    "name": tool_call.name,
+                    "arguments": tool_call.arguments,
+                },
+            )
+        result = self.executor.execute(tool_call)
+        if recorder is not None:
+            recorder.emit(
+                "tool.result",
+                category="tool",
+                data={
+                    "round": round_index,
+                    "tool_call_id": result.tool_call_id,
+                    "content": result.content,
+                    "is_error": result.is_error,
+                },
+            )
+        return result
 
     def _initial_messages(self, state: Mapping[str, Any]) -> list[Message]:
         plan = state.get(self.plan_key)
@@ -204,6 +260,13 @@ class WriterNode(Node):
             plan_payload = dict(plan)
         else:
             plan_payload = {"deliverable_question": str(state.get("question", "")).strip()}
+        review = state.get(self.review_key)
+        revision_context = ""
+        if review is not None:
+            revision_context = (
+                f"\nExisting report path: {state.get(self.report_path_key, self.default_report_path)}\n\n"
+                f"Supervisor review:\n{review}\n"
+            )
 
         return [
             {"role": "system", "content": self.system_prompt},
@@ -212,7 +275,8 @@ class WriterNode(Node):
                 "content": (
                     "Plan to execute:\n"
                     f"{plan_payload}\n\n"
-                    "Decide what context or template retrieval is useful before writing."
+                    f"{revision_context}\n"
+                    "Decide what context, template retrieval, or file edits are useful before writing."
                 ),
             },
         ]
@@ -231,8 +295,19 @@ class WriterNode(Node):
         return chat_kwargs
 
 
-def default_writer_tools() -> list[Tool]:
+def default_writer_tools(report_workspace: str | Path = "artifacts") -> list[Tool]:
     return [
         search_science_knowledge_base,
         search_template_knowledge_base,
+        *build_file_tools(report_workspace),
     ]
+
+
+def _with_file_tools(tools: Sequence[Tool], report_workspace: str | Path) -> list[Tool]:
+    merged = list(tools)
+    names = {tool.name for tool in merged}
+    for file_tool in build_file_tools(report_workspace):
+        if file_tool.name not in names:
+            merged.append(file_tool)
+            names.add(file_tool.name)
+    return merged

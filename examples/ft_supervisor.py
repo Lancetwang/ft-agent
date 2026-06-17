@@ -4,7 +4,15 @@ import sys
 from ft_agent import Agent
 from ft_agent.core import CallableNode, Flow, TraceOptions, make_trace_options
 from ft_agent.llm import DeepSeekLLM
-from ft_agent.pipeline import PlannerNode, PlannerPlan, RouterDecision, RouterNode
+from ft_agent.pipeline import (
+    PlannerNode,
+    PlannerPlan,
+    RouterDecision,
+    RouterNode,
+    SupervisorNode,
+    SupervisorReview,
+    WriterNode,
+)
 
 
 def final_irrelevant(payload: dict) -> dict:
@@ -23,29 +31,39 @@ def final_clarify(payload: dict) -> dict:
     return payload
 
 
-def final_planned(payload: dict) -> dict:
-    plan: PlannerPlan = payload["planner_plan"]
-    payload["answer"] = f"Planner produced {len(plan.steps)} executable steps."
+def final_approved(payload: dict) -> dict:
+    review: SupervisorReview = payload["supervisor_review"]
+    payload["answer"] = (
+        f"Supervisor approved: {review.approved}\n"
+        f"Review summary: {review.summary}\n"
+        f"Report path: {payload.get('writer_report_path')}\n\n"
+        f"{payload.get('writer_report', '')}"
+    )
     return payload
 
 
 def build_flow() -> Flow:
     router = RouterNode(llm=DeepSeekLLM())
     planner = PlannerNode(llm=DeepSeekLLM())
+    writer = WriterNode(llm=DeepSeekLLM())
+    supervisor = SupervisorNode(llm=DeepSeekLLM())
     irrelevant_node = CallableNode(final_irrelevant)
     clarify_node = CallableNode(final_clarify)
-    planned_node = CallableNode(final_planned)
+    approved_node = CallableNode(final_approved)
 
     router - "irrelevant" >> irrelevant_node
     router - "clarify" >> clarify_node
     router - "ready" >> planner
-    planner - "planned" >> planned_node
+    planner - "planned" >> writer
+    writer - "written" >> supervisor
+    supervisor - "revise" >> writer
+    supervisor - "approved" >> approved_node
 
     return Flow(router)
 
 
 def run_pipeline(payload: dict, agent: Agent, trace: TraceOptions | None = None, *, stream: bool = False) -> dict:
-    result = agent.run(payload, trace=trace)
+    result = agent.run(payload, trace=trace, max_steps=20)
     if stream:
         print()
     print_result(result.payload)
@@ -60,7 +78,12 @@ def print_result(payload: dict) -> None:
         print(f"clarification: {decision.clarification_question}")
     if "planner_plan" in payload:
         print_plan(payload["planner_plan"])
-    print(f"answer: {payload['answer']}")
+    if "supervisor_review" in payload:
+        print_review(payload["supervisor_review"])
+    if payload.get("writer_report_path"):
+        print(f"writer_report_path: {payload['writer_report_path']}")
+    print("answer:")
+    print(safe_text(payload["answer"]))
 
 
 def print_plan(plan: PlannerPlan) -> None:
@@ -68,8 +91,20 @@ def print_plan(plan: PlannerPlan) -> None:
     for step in plan.steps:
         depends_on = ", ".join(step.depends_on) if step.depends_on else "-"
         print(f"{step.id}. {step.capability} depends_on={depends_on}")
-        print(f"   instruction: {step.instruction}")
-        print(f"   expected_output: {step.expected_output}")
+
+
+def print_review(review: SupervisorReview) -> None:
+    print(f"supervisor_approved: {review.approved}")
+    print(f"supervisor_rounds: {review.revision_rounds}/{review.max_revision_rounds}")
+    print(f"supervisor_summary: {review.summary}")
+    for issue in review.issues:
+        line_range = "-"
+        if issue.line_start is not None:
+            line_range = str(issue.line_start)
+            if issue.line_end is not None and issue.line_end != issue.line_start:
+                line_range = f"{issue.line_start}-{issue.line_end}"
+        print(f"- [{issue.severity}] lines {line_range}: {issue.message}")
+        print(f"  suggestion: {issue.suggestion}")
 
 
 def run_conversation(
@@ -104,14 +139,10 @@ def stream_payload(enabled: bool) -> dict:
     if not enabled:
         return {}
     return {
-        "router_chat_kwargs": {
-            "stream": True,
-            "on_delta": make_stream_printer("router"),
-        },
-        "planner_chat_kwargs": {
-            "stream": True,
-            "on_delta": make_stream_printer("planner"),
-        },
+        "router_chat_kwargs": {"stream": True, "on_delta": make_stream_printer("router")},
+        "planner_chat_kwargs": {"stream": True, "on_delta": make_stream_printer("planner")},
+        "writer_chat_kwargs": {"stream": True, "on_delta": make_stream_printer("writer")},
+        "supervisor_chat_kwargs": {"stream": True, "on_delta": make_stream_printer("supervisor")},
     }
 
 
@@ -137,10 +168,10 @@ def print_safe(text: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the ft-agent planner example.")
-    parser.add_argument("question", nargs="*", help="Question to route and plan.")
+    parser = argparse.ArgumentParser(description="Run the ft-agent supervisor example.")
+    parser.add_argument("question", nargs="*", help="Question to route, plan, write, and review.")
     parser.add_argument("--trace", action="store_true", help="Print trace events.")
-    parser.add_argument("--stream", action="store_true", help="Print raw LLM deltas for router and planner.")
+    parser.add_argument("--stream", action="store_true", help="Print raw LLM deltas.")
     return parser.parse_args()
 
 
@@ -153,7 +184,7 @@ def main() -> None:
         run_conversation(agent, " ".join(args.question), trace=trace, stream=args.stream)
         return
 
-    print("ft-agent planner. Type 'exit' to quit.")
+    print("ft-agent supervisor. Type 'exit' to quit.")
     while True:
         question = input("> ").strip()
         if question.lower() in {"exit", "quit", "q"}:

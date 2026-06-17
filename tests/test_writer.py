@@ -1,4 +1,5 @@
 import unittest
+from tempfile import TemporaryDirectory
 
 from ft_agent.core import Flow
 from ft_agent.pipeline import PlanStep, PlannerPlan, WriterNode
@@ -78,39 +79,44 @@ def sample_plan() -> PlannerPlan:
 class WriterTests(unittest.TestCase):
     def test_writer_executes_tools_and_writes_report(self) -> None:
         llm = FakeLLM()
-        node = WriterNode(llm=llm)
+        with TemporaryDirectory() as temp_dir:
+            node = WriterNode(llm=llm, report_workspace=temp_dir)
 
-        action, state = node.exec({"planner_plan": sample_plan()})
+            action, state = node.exec({"planner_plan": sample_plan()})
 
         self.assertEqual(action, "written")
         self.assertEqual(state["writer_report"], "Final report")
-        self.assertEqual(len(state["writer_tool_results"]), 2)
+        self.assertEqual(state["writer_report_path"], "reports/latest.md")
+        self.assertEqual(len(state["writer_tool_results"]), 3)
         self.assertIn("mock-science-kb", state["writer_tool_results"][0].content)
         self.assertIn("mock-template-kb", state["writer_tool_results"][1].content)
+        self.assertIn("latest.md", state["writer_tool_results"][2].content)
 
     def test_writer_streams_final_report(self) -> None:
         llm = FakeLLM()
-        node = WriterNode(llm=llm)
-        seen: list[str] = []
+        with TemporaryDirectory() as temp_dir:
+            node = WriterNode(llm=llm, report_workspace=temp_dir)
+            seen: list[str] = []
 
-        node.exec(
-            {
-                "planner_plan": sample_plan(),
-                "writer_chat_kwargs": {
-                    "stream": True,
-                    "on_delta": seen.append,
-                },
-            }
-        )
+            node.exec(
+                {
+                    "planner_plan": sample_plan(),
+                    "writer_chat_kwargs": {
+                        "stream": True,
+                        "on_delta": seen.append,
+                    },
+                }
+            )
 
         self.assertEqual(seen, ["Final ", "report"])
         self.assertTrue(llm.last_chat_kwargs["stream"])
 
     def test_writer_emits_tool_trace_events(self) -> None:
         llm = FakeLLM()
-        node = WriterNode(llm=llm)
+        with TemporaryDirectory() as temp_dir:
+            node = WriterNode(llm=llm, report_workspace=temp_dir)
 
-        result = Flow(node).run({"planner_plan": sample_plan()}, trace=True)
+            result = Flow(node).run({"planner_plan": sample_plan()}, trace=True)
         tool_events = [event for event in result.trace if event.category == "tool"]
         tool_calls = [event for event in tool_events if event.event == "tool.call"]
         tool_results = [event for event in tool_events if event.event == "tool.result"]
@@ -118,11 +124,12 @@ class WriterTests(unittest.TestCase):
         self.assertEqual(tool_events[0].event, "tool.round")
         self.assertEqual(tool_events[0].data["tool_call_count"], 2)
         self.assertEqual(
-            [event.data["name"] for event in tool_calls],
+            [event.data["name"] for event in tool_calls[:2]],
             ["search_science_knowledge_base", "search_template_knowledge_base"],
         )
         self.assertEqual(tool_calls[0].data["arguments"]["top_k"], 2)
-        self.assertEqual(len(tool_results), 2)
+        self.assertEqual(tool_calls[-1].data["name"], "write_file")
+        self.assertEqual(len(tool_results), 3)
         self.assertFalse(tool_results[0].data["is_error"])
 
 

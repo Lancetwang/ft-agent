@@ -112,6 +112,12 @@ uv run python examples/ft_writer.py --stream "Write an experiment report for imp
 
 ChromaDB is included as the vector-store dependency; the current writer retrieval tools return mock scientific and template results until real collections are populated.
 
+Run the supervisor review loop:
+
+```powershell
+uv run python examples/ft_supervisor.py --trace "Write an experiment report for improving cobalt FT catalyst stability."
+```
+
 Enable runtime trace output:
 
 ```powershell
