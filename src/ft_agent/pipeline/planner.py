@@ -143,6 +143,7 @@ class PlannerNode(Node):
         question_key: str = "question",
         output_key: str = "planner_plan",
         raw_output_key: str = "planner_raw_output",
+        chat_kwargs_key: str = "planner_chat_kwargs",
         action: str = "planned",
         system_prompt: str = PLANNER_SYSTEM_PROMPT,
         chat_kwargs: Mapping[str, Any] | None = None,
@@ -154,6 +155,7 @@ class PlannerNode(Node):
         self.question_key = question_key
         self.output_key = output_key
         self.raw_output_key = raw_output_key
+        self.chat_kwargs_key = chat_kwargs_key
         self.action = action
         self.system_prompt = system_prompt
         self.chat_kwargs = dict(chat_kwargs or {})
@@ -161,7 +163,7 @@ class PlannerNode(Node):
     def exec(self, payload: Payload) -> ExecResult:
         state = dict(payload or {})
         deliverable_question = self._deliverable_question(state)
-        chat_kwargs = {"temperature": 0, **self.chat_kwargs}
+        chat_kwargs = self._chat_kwargs(state)
         content = self.llm.chat(
             self._messages(deliverable_question),
             **chat_kwargs,
@@ -184,6 +186,16 @@ class PlannerNode(Node):
             if question:
                 return question
         return str(state.get(self.question_key, "")).strip()
+
+    def _chat_kwargs(self, state: Mapping[str, Any]) -> dict[str, Any]:
+        chat_kwargs = {"temperature": 0, **self.chat_kwargs}
+        common_kwargs = state.get("chat_kwargs", {})
+        if isinstance(common_kwargs, Mapping):
+            chat_kwargs.update(common_kwargs)
+        node_kwargs = state.get(self.chat_kwargs_key, {})
+        if isinstance(node_kwargs, Mapping):
+            chat_kwargs.update(node_kwargs)
+        return chat_kwargs
 
     def _messages(self, deliverable_question: str) -> list[Message]:
         return [

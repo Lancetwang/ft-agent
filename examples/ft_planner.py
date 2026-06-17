@@ -43,8 +43,10 @@ def build_flow() -> Flow:
     return Flow(router)
 
 
-def run_pipeline(payload: dict, agent: Agent, trace: TraceOptions | None = None) -> dict:
+def run_pipeline(payload: dict, agent: Agent, trace: TraceOptions | None = None, *, stream: bool = False) -> dict:
     result = agent.run(payload, trace=trace)
+    if stream:
+        print()
     print_result(result.payload)
     return result.payload
 
@@ -69,10 +71,16 @@ def print_plan(plan: PlannerPlan) -> None:
         print(f"   expected_output: {step.expected_output}")
 
 
-def run_conversation(agent: Agent, question: str, trace: TraceOptions | None = None) -> None:
-    payload = {"question": question}
+def run_conversation(
+    agent: Agent,
+    question: str,
+    trace: TraceOptions | None = None,
+    *,
+    stream: bool = False,
+) -> None:
+    payload = {"question": question, **stream_payload(stream)}
     while True:
-        payload = run_pipeline(payload, agent, trace=trace)
+        payload = run_pipeline(payload, agent, trace=trace, stream=stream)
         decision: RouterDecision = payload["router_decision"]
         if decision.action != "clarify":
             return
@@ -84,12 +92,41 @@ def run_conversation(agent: Agent, question: str, trace: TraceOptions | None = N
         if not clarification_response:
             continue
         payload["clarification_response"] = clarification_response
+        payload.update(stream_payload(stream))
+
+
+def stream_payload(enabled: bool) -> dict:
+    if not enabled:
+        return {}
+    return {
+        "router_chat_kwargs": {
+            "stream": True,
+            "on_delta": make_stream_printer("router"),
+        },
+        "planner_chat_kwargs": {
+            "stream": True,
+            "on_delta": make_stream_printer("planner"),
+        },
+    }
+
+
+def make_stream_printer(stage: str):
+    started = {"value": False}
+
+    def on_delta(delta: str) -> None:
+        if not started["value"]:
+            print(f"\n[{stage}:stream] ", end="", flush=True)
+            started["value"] = True
+        print(delta, end="", flush=True)
+
+    return on_delta
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the ft-agent planner example.")
     parser.add_argument("question", nargs="*", help="Question to route and plan.")
     parser.add_argument("--trace", action="store_true", help="Print trace events.")
+    parser.add_argument("--stream", action="store_true", help="Print raw LLM deltas for router and planner.")
     return parser.parse_args()
 
 
@@ -99,7 +136,7 @@ def main() -> None:
     agent = Agent(build_flow())
 
     if args.question:
-        run_conversation(agent, " ".join(args.question), trace=trace)
+        run_conversation(agent, " ".join(args.question), trace=trace, stream=args.stream)
         return
 
     print("ft-agent planner. Type 'exit' to quit.")
@@ -109,7 +146,7 @@ def main() -> None:
             print("bye")
             break
         if question:
-            run_conversation(agent, question, trace=trace)
+            run_conversation(agent, question, trace=trace, stream=args.stream)
 
 
 if __name__ == "__main__":

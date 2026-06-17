@@ -183,6 +183,7 @@ class RouterNode(Node):
         context_key: str = "router_context",
         output_key: str = "router_decision",
         raw_output_key: str = "router_raw_output",
+        chat_kwargs_key: str = "router_chat_kwargs",
         max_clarification_rounds: int = 3,
         system_prompt: str = ROUTER_SYSTEM_PROMPT,
         chat_kwargs: Mapping[str, Any] | None = None,
@@ -196,6 +197,7 @@ class RouterNode(Node):
         self.context_key = context_key
         self.output_key = output_key
         self.raw_output_key = raw_output_key
+        self.chat_kwargs_key = chat_kwargs_key
         self.max_clarification_rounds = max_clarification_rounds
         self.system_prompt = system_prompt
         self.chat_kwargs = dict(chat_kwargs or {})
@@ -209,7 +211,7 @@ class RouterNode(Node):
             context_key=self.context_key,
         )
         context = self._append_clarification_response(state, context)
-        chat_kwargs = {"temperature": 0, **self.chat_kwargs}
+        chat_kwargs = self._chat_kwargs(state)
         content = self.llm.chat(
             self._messages(context),
             **chat_kwargs,
@@ -248,6 +250,16 @@ class RouterNode(Node):
             question=clarification_question or "Clarification requested by the router.",
             answer=response,
         )
+
+    def _chat_kwargs(self, state: Mapping[str, Any]) -> dict[str, Any]:
+        chat_kwargs = {"temperature": 0, **self.chat_kwargs}
+        common_kwargs = state.get("chat_kwargs", {})
+        if isinstance(common_kwargs, Mapping):
+            chat_kwargs.update(common_kwargs)
+        node_kwargs = state.get(self.chat_kwargs_key, {})
+        if isinstance(node_kwargs, Mapping):
+            chat_kwargs.update(node_kwargs)
+        return chat_kwargs
 
     def _messages(self, context: RouterContext) -> list[Message]:
         return [

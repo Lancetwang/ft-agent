@@ -65,6 +65,41 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(llm.last_kwargs["temperature"], 0)
         self.assertIn("Writer capabilities", llm.last_messages[1]["content"])
 
+    def test_planner_accepts_payload_chat_kwargs(self) -> None:
+        llm = FakeLLM(
+            """
+            {
+              "deliverable_question": "Question",
+              "summary": "Search only.",
+              "steps": [
+                {
+                  "id": "s1",
+                  "capability": "search_science_knowledge_base",
+                  "instruction": "Search evidence.",
+                  "expected_output": "Evidence.",
+                  "depends_on": []
+                }
+              ]
+            }
+            """
+        )
+        node = PlannerNode(llm=llm)
+        seen: list[str] = []
+        on_delta = seen.append
+
+        node.exec(
+            {
+                "question": "Question",
+                "planner_chat_kwargs": {
+                    "stream": True,
+                    "on_delta": on_delta,
+                },
+            }
+        )
+
+        self.assertTrue(llm.last_kwargs["stream"])
+        self.assertIs(llm.last_kwargs["on_delta"], on_delta)
+
     def test_planner_rejects_unknown_capability(self) -> None:
         node = PlannerNode(
             llm=FakeLLM(

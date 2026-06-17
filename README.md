@@ -98,6 +98,12 @@ Run the router-to-planner pipeline:
 uv run python examples/ft_planner.py "How should I design a report about cobalt FT catalyst deactivation?"
 ```
 
+Stream raw LLM deltas for long-running router/planner stages:
+
+```powershell
+uv run python examples/ft_planner.py --stream "How should I design a report about cobalt FT catalyst deactivation?"
+```
+
 Enable runtime trace output:
 
 ```powershell

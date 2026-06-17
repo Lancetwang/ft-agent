@@ -44,6 +44,34 @@ class RouterTests(unittest.TestCase):
         )
         self.assertEqual(llm.last_kwargs["temperature"], 0)
 
+    def test_router_accepts_payload_chat_kwargs(self) -> None:
+        llm = FakeLLM(
+            """
+            {
+              "is_relevant": false,
+              "needs_clarification": false,
+              "clarification_question": null,
+              "deliverable_question": "Weather"
+            }
+            """
+        )
+        node = RouterNode(llm=llm)
+        seen: list[str] = []
+        on_delta = seen.append
+
+        node.exec(
+            {
+                "question": "weather",
+                "router_chat_kwargs": {
+                    "stream": True,
+                    "on_delta": on_delta,
+                },
+            }
+        )
+
+        self.assertTrue(llm.last_kwargs["stream"])
+        self.assertIs(llm.last_kwargs["on_delta"], on_delta)
+
     def test_router_routes_irrelevant_question(self) -> None:
         node = RouterNode(
             llm=FakeLLM(
