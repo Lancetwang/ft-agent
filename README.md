@@ -33,6 +33,7 @@ The project is organized around a small node-flow agent runtime:
 - `src/ft_agent/core/node.py`: node and flow abstractions
 - `src/ft_agent/llm/`: model calls and LLM-backed nodes
 - `src/ft_agent/tools/`: tool definitions, tool execution, and tool-call nodes
+- `src/ft_agent/pipeline/`: ft-agent domain pipeline nodes
 - `src/ft_agent/agent.py`: thin agent runner over a flow
 - `src/ft_agent/util/`: project utilities and checks
 - `examples/`: runnable sketches for flow composition
@@ -81,6 +82,12 @@ Run the multi-turn tool chatbot:
 
 ```powershell
 uv run python examples/tool_chatbot.py
+```
+
+Run the Fischer-Tropsch catalyst router:
+
+```powershell
+uv run python examples/ft_router.py "How does cobalt particle size affect methane selectivity?"
 ```
 
 Enable runtime trace output:
