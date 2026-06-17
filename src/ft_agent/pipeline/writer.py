@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any
 
 from ft_agent.core import ExecResult, Node, Payload
+from ft_agent.core.trace import get_trace_recorder
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
 from ft_agent.pipeline.planner import PlannerPlan
@@ -127,8 +128,9 @@ class WriterNode(Node):
         messages = self._initial_messages(state)
         tool_results: list[ToolResult] = []
         decision_kwargs = self._chat_kwargs(state, allow_stream=False)
+        recorder = get_trace_recorder(state)
 
-        for _ in range(self.max_tool_rounds):
+        for round_index in range(1, self.max_tool_rounds + 1):
             assistant_message = self.llm.chat_message(
                 messages,
                 tools=[tool.to_llm_format() for tool in self.tools],
@@ -137,12 +139,43 @@ class WriterNode(Node):
             )
             messages.append(assistant_message)
             tool_calls = self.executor.parse_tool_calls(assistant_message)
+            if recorder is not None:
+                recorder.emit(
+                    "tool.round",
+                    category="tool",
+                    data={
+                        "round": round_index,
+                        "tool_call_count": len(tool_calls),
+                    },
+                )
             if not tool_calls:
                 break
             for tool_call in tool_calls:
+                if recorder is not None:
+                    recorder.emit(
+                        "tool.call",
+                        category="tool",
+                        data={
+                            "round": round_index,
+                            "tool_call_id": tool_call.id,
+                            "name": tool_call.name,
+                            "arguments": tool_call.arguments,
+                        },
+                    )
                 result = self.executor.execute(tool_call)
                 tool_results.append(result)
                 messages.append(result.to_message())
+                if recorder is not None:
+                    recorder.emit(
+                        "tool.result",
+                        category="tool",
+                        data={
+                            "round": round_index,
+                            "tool_call_id": result.tool_call_id,
+                            "content": result.content,
+                            "is_error": result.is_error,
+                        },
+                    )
 
         final_messages = [
             *messages,

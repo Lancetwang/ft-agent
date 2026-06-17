@@ -1,5 +1,6 @@
 import unittest
 
+from ft_agent.core import Flow
 from ft_agent.pipeline import PlanStep, PlannerPlan, WriterNode
 
 
@@ -104,6 +105,25 @@ class WriterTests(unittest.TestCase):
 
         self.assertEqual(seen, ["Final ", "report"])
         self.assertTrue(llm.last_chat_kwargs["stream"])
+
+    def test_writer_emits_tool_trace_events(self) -> None:
+        llm = FakeLLM()
+        node = WriterNode(llm=llm)
+
+        result = Flow(node).run({"planner_plan": sample_plan()}, trace=True)
+        tool_events = [event for event in result.trace if event.category == "tool"]
+        tool_calls = [event for event in tool_events if event.event == "tool.call"]
+        tool_results = [event for event in tool_events if event.event == "tool.result"]
+
+        self.assertEqual(tool_events[0].event, "tool.round")
+        self.assertEqual(tool_events[0].data["tool_call_count"], 2)
+        self.assertEqual(
+            [event.data["name"] for event in tool_calls],
+            ["search_science_knowledge_base", "search_template_knowledge_base"],
+        )
+        self.assertEqual(tool_calls[0].data["arguments"]["top_k"], 2)
+        self.assertEqual(len(tool_results), 2)
+        self.assertFalse(tool_results[0].data["is_error"])
 
 
 if __name__ == "__main__":
