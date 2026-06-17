@@ -1,6 +1,7 @@
 import unittest
 
-from ft_agent.core import CallableNode, Flow, FlowError, Node
+from ft_agent.core import CallableNode, Flow, FlowError, Node, make_trace_options
+from ft_agent.core.trace import TRACE_KEY
 
 
 class CoreFlowTests(unittest.TestCase):
@@ -42,6 +43,38 @@ class CoreFlowTests(unittest.TestCase):
 
         with self.assertRaises(FlowError):
             Flow(node).run({}, max_steps=2)
+
+    def test_flow_collects_trace_events(self) -> None:
+        node = CallableNode(lambda payload: payload)
+
+        result = Flow(node).run({}, trace=True)
+
+        self.assertEqual(result.path, ["CallableNode"])
+        self.assertNotIn(TRACE_KEY, result.payload)
+        self.assertEqual(
+            [event.event for event in result.trace],
+            ["node.start", "node.end", "flow.end"],
+        )
+        self.assertEqual(result.trace[0].step, 1)
+        self.assertEqual(result.trace[1].action, "default")
+
+    def test_flow_trace_can_filter_categories(self) -> None:
+        node = CallableNode(lambda payload: payload)
+        trace = make_trace_options(include=["flow"])
+
+        result = Flow(node).run({}, trace=trace)
+
+        self.assertEqual([event.category for event in result.trace], ["flow"])
+
+    def test_flow_trace_does_not_leak_into_original_payload(self) -> None:
+        def copy_payload(payload: dict) -> dict:
+            return {"ok": payload.get("ok")}
+
+        payload = {"ok": True}
+
+        Flow(CallableNode(copy_payload)).run(payload, trace=True)
+
+        self.assertNotIn(TRACE_KEY, payload)
 
 
 if __name__ == "__main__":

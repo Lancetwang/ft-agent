@@ -8,6 +8,13 @@ from ft_agent.core.node import (
     Node,
     Payload,
 )
+from ft_agent.core.trace import (
+    TraceEvent,
+    TraceOptions,
+    TraceRecorder,
+    format_trace_event,
+    make_trace_options,
+)
 
 __all__ = [
     "Action",
@@ -18,4 +25,9 @@ __all__ = [
     "FlowRunResult",
     "Node",
     "Payload",
+    "TraceEvent",
+    "TraceOptions",
+    "TraceRecorder",
+    "format_trace_event",
+    "make_trace_options",
 ]

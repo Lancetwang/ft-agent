@@ -68,3 +68,18 @@ Run the multi-turn tool chatbot:
 ```powershell
 uv run python examples/tool_chatbot.py
 ```
+
+Enable runtime trace output:
+
+```powershell
+uv run python examples/tool_chatbot.py --trace --trace-events node,tool
+```
+
+Programmatic runs can collect structured trace events for UI display:
+
+```python
+from ft_agent.core import make_trace_options
+
+result = agent.run(payload, trace=make_trace_options(include=["node", "tool"]))
+events = [event.to_dict() for event in result.trace]
+```

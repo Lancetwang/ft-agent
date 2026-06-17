@@ -1,6 +1,7 @@
 from typing import Any
 
 from ft_agent.core import ExecResult, Node, Payload
+from ft_agent.core.trace import get_trace_recorder
 from ft_agent.tools.executor import ToolExecutor
 
 
@@ -25,7 +26,31 @@ class ToolCallNode(Node):
         state: dict[str, Any] = dict(payload or {})
         assistant_message = state.get(self.assistant_key, {})
         tool_calls = self.executor.parse_tool_calls(assistant_message)
-        results = self.executor.execute_all(tool_calls)
+        recorder = get_trace_recorder(state)
+        results = []
+        for tool_call in tool_calls:
+            if recorder is not None:
+                recorder.emit(
+                    "tool.call",
+                    category="tool",
+                    data={
+                        "tool_call_id": tool_call.id,
+                        "name": tool_call.name,
+                        "arguments": tool_call.arguments,
+                    },
+                )
+            result = self.executor.execute(tool_call)
+            results.append(result)
+            if recorder is not None:
+                recorder.emit(
+                    "tool.result",
+                    category="tool",
+                    data={
+                        "tool_call_id": result.tool_call_id,
+                        "content": result.content,
+                        "is_error": result.is_error,
+                    },
+                )
 
         state[self.results_key] = results
         messages = state.setdefault(self.messages_key, [])

@@ -1,5 +1,6 @@
 import unittest
 
+from ft_agent.core import Flow
 from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
 
 
@@ -94,6 +95,32 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(action, "chat")
         self.assertEqual(state["history"][0]["role"], "tool")
         self.assertEqual(state["history"][0]["tool_call_id"], "call_1")
+
+    def test_tool_call_node_emits_trace_events(self) -> None:
+        node = ToolCallNode(executor=ToolExecutor([weather_tool()]), next_action="chat")
+        payload = {
+            "assistant_message": {
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"city": "Shanghai"}',
+                        },
+                    }
+                ]
+            },
+            "history": [],
+        }
+
+        result = Flow(node).run(payload, trace=True)
+        tool_events = [event for event in result.trace if event.category == "tool"]
+
+        self.assertEqual([event.event for event in tool_events], ["tool.call", "tool.result"])
+        self.assertEqual(tool_events[0].data["name"], "get_weather")
+        self.assertEqual(tool_events[0].data["arguments"], {"city": "Shanghai"})
+        self.assertFalse(tool_events[1].data["is_error"])
 
 
 if __name__ == "__main__":

@@ -1,9 +1,15 @@
-from ft_agent.core import Flow, FlowRunResult, Payload
+from ft_agent.core import Flow, FlowRunResult, Payload, TraceOptions
 
 
 class Agent:
     def __init__(self, flow: Flow) -> None:
         self.flow = flow
 
-    def run(self, payload: Payload = None) -> FlowRunResult:
-        return self.flow.run(payload)
+    def run(
+        self,
+        payload: Payload = None,
+        *,
+        max_steps: int = 100,
+        trace: TraceOptions | bool | None = None,
+    ) -> FlowRunResult:
+        return self.flow.run(payload, max_steps=max_steps, trace=trace)

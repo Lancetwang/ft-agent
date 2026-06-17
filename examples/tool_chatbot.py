@@ -1,9 +1,10 @@
+import argparse
 import sys
 
 from ft_agent import Agent
-from ft_agent.core import Flow
+from ft_agent.core import Flow, TraceOptions, make_trace_options
 from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
-from ft_agent.tools import Tool, ToolCallNode, ToolExecutor, ToolResult
+from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
 
 
 SYSTEM_PROMPT = """
@@ -33,9 +34,6 @@ Use this when the user asks for a joke.
 # Response
 Answer naturally in the user's language after tool results are available.
 """.strip()
-
-SHOW_TOOL_TRACE = True
-
 
 def get_weather(city: str) -> dict[str, str]:
     city_name = normalize_city(city)
@@ -133,22 +131,20 @@ def build_agent() -> Agent:
     return Agent(Flow(llm_node))
 
 
-def run_turn(agent: Agent, history: list[dict[str, str]], user_input: str) -> bool:
+def run_turn(
+    agent: Agent,
+    history: list[dict[str, str]],
+    user_input: str,
+    *,
+    trace: TraceOptions | None = None,
+) -> bool:
     if user_input.lower() in {"exit", "quit", "q"}:
         return False
 
     history.append({"role": "user", "content": user_input})
-    result = agent.run({"history": history})
-    if SHOW_TOOL_TRACE:
-        print_tool_trace(result.payload.get("tool_results", []))
+    result = agent.run({"history": history}, trace=trace)
     safe_print(result.payload["answer"])
     return True
-
-
-def print_tool_trace(results: list[ToolResult]) -> None:
-    for result in results:
-        status = "error" if result.is_error else "ok"
-        safe_print(f"[tool:{status}] {result.content}")
 
 
 def safe_print(text: str) -> None:
@@ -156,7 +152,7 @@ def safe_print(text: str) -> None:
     print(text.encode(encoding, errors="replace").decode(encoding))
 
 
-def run_scripted_demo() -> None:
+def run_scripted_demo(trace: TraceOptions | None = None) -> None:
     agent = build_agent()
     history: list[dict[str, str]] = []
     for user_input in [
@@ -166,10 +162,10 @@ def run_scripted_demo() -> None:
         "Compare Shanghai and Tokyo weather, then tell one joke.",
     ]:
         print(f"> {user_input}")
-        run_turn(agent, history, user_input)
+        run_turn(agent, history, user_input, trace=trace)
 
 
-def run_interactive() -> None:
+def run_interactive(trace: TraceOptions | None = None) -> None:
     agent = build_agent()
     history: list[dict[str, str]] = []
     print("ft-agent tool chatbot. Type 'exit' to quit.")
@@ -177,10 +173,37 @@ def run_interactive() -> None:
         user_input = input("> ").strip()
         if not user_input:
             continue
-        if not run_turn(agent, history, user_input):
+        if not run_turn(agent, history, user_input, trace=trace):
             print("bye")
             break
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the ft-agent tool chatbot example.")
+    parser.add_argument("--demo", action="store_true", help="Run scripted demo turns.")
+    parser.add_argument("--trace", action="store_true", help="Print trace events while the flow runs.")
+    parser.add_argument(
+        "--trace-events",
+        default="node,tool,flow",
+        help="Comma-separated trace categories: node, tool, flow.",
+    )
+    return parser.parse_args()
+
+
+def build_trace_options(args: argparse.Namespace) -> TraceOptions:
+    categories = [item.strip() for item in args.trace_events.split(",") if item.strip()]
+    return make_trace_options(
+        enabled=args.trace,
+        include=categories,
+        print_to_console=args.trace,
+        printer=safe_print,
+    )
+
+
 if __name__ == "__main__":
-    run_interactive()
+    args = parse_args()
+    trace_options = build_trace_options(args)
+    if args.demo:
+        run_scripted_demo(trace=trace_options)
+    else:
+        run_interactive(trace=trace_options)

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 import time
+
+from ft_agent.core.trace import (
+    TraceEvent,
+    TraceOptions,
+    TraceRecorder,
+    reset_current_trace_recorder,
+    set_current_trace_recorder,
+)
 
 Action = str
 Payload = Any
@@ -80,23 +88,52 @@ class FlowRunResult:
     action: Action | None
     payload: Payload
     path: list[str]
+    trace: list[TraceEvent] = field(default_factory=list)
 
 
 class Flow:
     def __init__(self, start: Node | None = None) -> None:
         self.start = start
 
-    def run(self, payload: Any = None, *, max_steps: int = 100) -> FlowRunResult:
+    def run(
+        self,
+        payload: Any = None,
+        *,
+        max_steps: int = 100,
+        trace: TraceOptions | bool | None = None,
+    ) -> FlowRunResult:
         current = self.start
         last_action: Action | None = None
         path: list[str] = []
+        recorder = TraceRecorder(trace)
+        token = set_current_trace_recorder(recorder)
 
-        for _ in range(max_steps):
-            if current is None:
-                return FlowRunResult(action=last_action, payload=payload, path=path)
+        try:
+            for step in range(1, max_steps + 1):
+                if current is None:
+                    recorder.set_context(step=step, node=None)
+                    recorder.emit("flow.end", category="flow", step=step, node=None)
+                    return FlowRunResult(
+                        action=last_action,
+                        payload=payload,
+                        path=path,
+                        trace=list(recorder.events),
+                    )
 
-            path.append(current.__class__.__name__)
-            last_action, payload = current._exec(payload)
-            current = current.successors.get(last_action)
+                node_name = current.__class__.__name__
+                path.append(node_name)
+                recorder.set_context(step=step, node=node_name)
+                recorder.emit("node.start", category="node")
+                last_action, payload = current._exec(payload)
+                next_node = current.successors.get(last_action)
+                recorder.emit(
+                    "node.end",
+                    category="node",
+                    action=last_action,
+                    data={"next_node": next_node.__class__.__name__ if next_node else None},
+                )
+                current = next_node
+        finally:
+            reset_current_trace_recorder(token)
 
         raise FlowError(f"Flow exceeded max_steps={max_steps}.")
