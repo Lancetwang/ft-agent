@@ -1,10 +1,11 @@
 import argparse
 import sys
+from typing import Annotated, Literal
 
 from ft_agent import Agent
 from ft_agent.core import Flow, TraceOptions, make_trace_options
 from ft_agent.llm import DeepSeekLLM, ToolAwareLLMNode
-from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
+from ft_agent.tools import Tool, ToolCallNode, ToolExecutor, tool
 
 
 SYSTEM_PROMPT = """
@@ -35,13 +36,23 @@ Use this when the user asks for a joke.
 Answer naturally in the user's language after tool results are available.
 """.strip()
 
-def get_weather(city: str) -> dict[str, str]:
-    city_name = normalize_city(city)
+@tool(
+    description=(
+        "Look up demo weather for Shanghai or Tokyo. Use the English city name as "
+        "the city argument."
+    )
+)
+def get_weather(
+    city: Annotated[
+        Literal["Shanghai", "Tokyo"],
+        "English city name.",
+    ],
+) -> dict[str, str]:
     weather = {
         "Shanghai": {"condition": "sunny", "temperature": "24C"},
         "Tokyo": {"condition": "rainy", "temperature": "18C"},
     }
-    result = weather.get(city_name)
+    result = weather.get(city)
     if result is None:
         return {
             "city": city,
@@ -49,18 +60,16 @@ def get_weather(city: str) -> dict[str, str]:
             "supported_cities": ["Shanghai", "Tokyo"],
             "source": "mock",
         }
-    return {"city": city_name, "input_city": city, **result, "source": "mock"}
+    return {"city": city, **result, "source": "mock"}
 
 
-def normalize_city(city: str) -> str:
-    aliases = {
-        "shanghai": "Shanghai",
-        "tokyo": "Tokyo",
-    }
-    return aliases.get(city.strip().lower(), city.strip())
-
-
-def tell_joke(topic: str = "weather") -> dict[str, str]:
+@tool(description="Return a short demo joke for the requested topic.")
+def tell_joke(
+    topic: Annotated[
+        str,
+        "Optional joke topic, normalized to English.",
+    ] = "weather",
+) -> dict[str, str]:
     return {
         "topic": topic,
         "joke": "I asked the cloud for a forecast. It said it was feeling under the weather.",
@@ -69,44 +78,7 @@ def tell_joke(topic: str = "weather") -> dict[str, str]:
 
 
 def build_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="get_weather",
-            description=(
-                "Look up demo weather for Shanghai or Tokyo. Use the English city "
-                "name as the city argument."
-            ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "city": {
-                        "type": "string",
-                        "enum": ["Shanghai", "Tokyo"],
-                        "description": "English city name.",
-                    }
-                },
-                "required": ["city"],
-            },
-            fn=get_weather,
-        ),
-        Tool(
-            name="tell_joke",
-            description=(
-                "Return a short demo joke for the requested topic. Use this when "
-                "the user asks for a joke."
-            ),
-            parameters={
-                "type": "object",
-                "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "Optional joke topic, normalized to English.",
-                    }
-                },
-            },
-            fn=tell_joke,
-        ),
-    ]
+    return [get_weather, tell_joke]
 
 
 def build_messages(payload: dict) -> list[dict[str, str]]:

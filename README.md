@@ -63,6 +63,20 @@ Run the mocked weather tool flow:
 uv run python examples/weather_tool_flow.py
 ```
 
+Define tools with the `@tool` decorator:
+
+```python
+from typing import Annotated, Literal
+
+from ft_agent.tools import tool
+
+@tool(description="Look up demo weather for a supported city.")
+def get_weather(
+    city: Annotated[Literal["Shanghai", "Tokyo"], "English city name."],
+) -> dict[str, str]:
+    return {"city": city, "condition": "sunny"}
+```
+
 Run the multi-turn tool chatbot:
 
 ```powershell

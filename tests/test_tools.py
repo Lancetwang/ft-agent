@@ -1,7 +1,8 @@
 import unittest
+from typing import Annotated, Literal
 
 from ft_agent.core import Flow
-from ft_agent.tools import Tool, ToolCallNode, ToolExecutor
+from ft_agent.tools import Tool, ToolCallNode, ToolDefinitionError, ToolExecutor, tool
 
 
 def get_weather(city: str) -> dict[str, str]:
@@ -30,6 +31,51 @@ class ToolTests(unittest.TestCase):
         self.assertEqual(tool.name, "get_weather")
         self.assertEqual(result["city"], "Shanghai")
         self.assertEqual(result["source"], "mock")
+
+    def test_tool_decorator_builds_schema_from_signature(self) -> None:
+        @tool(description="Get mocked weather.")
+        def decorated_weather(
+            city: Annotated[
+                Literal["Shanghai", "Tokyo"],
+                "City whose weather should be queried.",
+            ],
+            include_source: Annotated[bool, "Whether to include source metadata."] = True,
+        ) -> dict[str, str]:
+            return {"city": city, "source": "mock" if include_source else ""}
+
+        llm_format = decorated_weather.to_llm_format()
+        parameters = llm_format["function"]["parameters"]
+
+        self.assertEqual(decorated_weather.name, "decorated_weather")
+        self.assertEqual(decorated_weather(city="Shanghai")["city"], "Shanghai")
+        self.assertEqual(parameters["required"], ["city"])
+        self.assertEqual(
+            parameters["properties"]["city"],
+            {
+                "type": "string",
+                "enum": ["Shanghai", "Tokyo"],
+                "description": "City whose weather should be queried.",
+            },
+        )
+        self.assertEqual(parameters["properties"]["include_source"]["type"], "boolean")
+        self.assertEqual(
+            parameters["properties"]["include_source"]["description"],
+            "Whether to include source metadata.",
+        )
+        self.assertTrue(parameters["properties"]["include_source"]["default"])
+
+    def test_tool_decorator_requires_annotations(self) -> None:
+        with self.assertRaises(ToolDefinitionError):
+
+            @tool(description="Missing parameter type.")
+            def missing_param_type(city) -> dict[str, str]:
+                return {"city": city}
+
+        with self.assertRaises(ToolDefinitionError):
+
+            @tool(description="Missing return type.")
+            def missing_return_type(city: str):
+                return {"city": city}
 
     def test_executor_runs_openai_style_tool_call(self) -> None:
         executor = ToolExecutor([weather_tool()])
