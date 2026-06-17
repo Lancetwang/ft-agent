@@ -104,6 +104,14 @@ Stream raw LLM deltas for long-running router/planner stages:
 uv run python examples/ft_planner.py --stream "How should I design a report about cobalt FT catalyst deactivation?"
 ```
 
+Run the router-planner-writer pipeline with mock knowledge retrieval:
+
+```powershell
+uv run python examples/ft_writer.py --stream "Write an experiment report for improving cobalt FT catalyst stability."
+```
+
+ChromaDB is included as the vector-store dependency; the current writer retrieval tools return mock scientific and template results until real collections are populated.
+
 Enable runtime trace output:
 
 ```powershell

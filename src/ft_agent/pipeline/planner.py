@@ -50,6 +50,7 @@ class PlannerParseError(ValueError):
 class WriterCapability:
     name: str
     description: str
+    kind: str = "intrinsic"
     inputs: list[str] = field(default_factory=list)
     output: str = ""
 
@@ -57,6 +58,7 @@ class WriterCapability:
         return {
             "name": self.name,
             "description": self.description,
+            "kind": self.kind,
             "inputs": self.inputs,
             "output": self.output,
         }
@@ -215,29 +217,32 @@ def default_writer_capabilities() -> list[WriterCapability]:
         WriterCapability(
             name="search_science_knowledge_base",
             description=(
-                "Retrieve scientific literature, mechanisms, catalyst facts, "
-                "experimental conditions, and domain evidence."
+                "Tool-backed retrieval from the scientific knowledge base. The writer "
+                "may use it repeatedly with its own queries until enough context is gathered."
             ),
-            inputs=["query", "purpose"],
+            kind="tool",
+            inputs=["query", "top_k"],
             output="Relevant scientific evidence, findings, and citations.",
         ),
         WriterCapability(
-            name="draft_from_evidence",
-            description="Draft technical content grounded in retrieved scientific evidence.",
-            inputs=["evidence", "target_section"],
-            output="Evidence-grounded draft text.",
-        ),
-        WriterCapability(
             name="search_template_knowledge_base",
-            description="Retrieve report templates, section patterns, and writing structures.",
-            inputs=["query", "report_type"],
-            output="Relevant template structure and writing pattern.",
+            description=(
+                "Tool-backed retrieval from the template knowledge base. It returns "
+                "the most similar report template for the writer to follow."
+            ),
+            kind="tool",
+            inputs=["query"],
+            output="The most similar experiment-report template.",
         ),
         WriterCapability(
-            name="write_final_report",
-            description="Compose the final response or report from evidence and templates.",
-            inputs=["draft", "template"],
-            output="Final writer deliverable.",
+            name="write_experimental_report",
+            description=(
+                "Intrinsic writer ability. Compose the final experiment report from "
+                "the plan, retrieved scientific context, and retrieved template."
+            ),
+            kind="intrinsic",
+            inputs=["plan", "scientific_context", "template"],
+            output="Final experiment report.",
         ),
     ]
 

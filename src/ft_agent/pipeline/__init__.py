@@ -13,6 +13,12 @@ from ft_agent.pipeline.router import (
     RouterNode,
     RouterParseError,
 )
+from ft_agent.pipeline.writer import (
+    WriterNode,
+    default_writer_tools,
+    search_science_knowledge_base,
+    search_template_knowledge_base,
+)
 
 __all__ = [
     "PlanStep",
@@ -24,6 +30,10 @@ __all__ = [
     "RouterDecision",
     "RouterNode",
     "RouterParseError",
+    "WriterNode",
     "WriterCapability",
     "default_writer_capabilities",
+    "default_writer_tools",
+    "search_science_knowledge_base",
+    "search_template_knowledge_base",
 ]

@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 from ft_agent import Agent
 from ft_agent.core import CallableNode, Flow, TraceOptions, make_trace_options
@@ -77,7 +78,11 @@ def run_conversation(
         if decision.action != "clarify":
             return
 
-        clarification_response = input("clarification> ").strip()
+        try:
+            clarification_response = input("clarification> ").strip()
+        except EOFError:
+            print("no clarification response available")
+            return
         if clarification_response.lower() in {"exit", "quit", "q"}:
             print("bye")
             return
@@ -105,9 +110,14 @@ def make_stream_printer(stage: str):
         if not started["value"]:
             print(f"\n[{stage}:stream] ", end="", flush=True)
             started["value"] = True
-        print(delta, end="", flush=True)
+        print(safe_text(delta), end="", flush=True)
 
     return on_delta
+
+
+def safe_text(text: str) -> str:
+    encoding = sys.stdout.encoding or "utf-8"
+    return text.encode(encoding, errors="replace").decode(encoding)
 
 
 def parse_args() -> argparse.Namespace:

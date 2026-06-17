@@ -39,7 +39,7 @@ class PlannerTests(unittest.TestCase):
                 },
                 {
                   "id": "s2",
-                  "capability": "draft_from_evidence",
+                  "capability": "write_experimental_report",
                   "instruction": "Draft the mechanism explanation from the evidence.",
                   "expected_output": "Evidence-grounded draft.",
                   "depends_on": ["s1"]
@@ -158,7 +158,7 @@ class PlannerTests(unittest.TestCase):
                   "steps": [
                     {
                       "id": "s1",
-                      "capability": "draft_from_evidence",
+                      "capability": "write_experimental_report",
                       "instruction": "Draft from evidence.",
                       "expected_output": "Draft.",
                       "depends_on": ["s2"]
