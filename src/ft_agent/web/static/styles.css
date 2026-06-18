@@ -213,8 +213,9 @@ h1 {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: #22201c;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.62;
 }
 
 .message.user .message-content {
@@ -278,7 +279,7 @@ h1 {
 
 .flow-pane {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto;
   gap: 20px;
   width: 620px;
   height: 100vh;
@@ -491,8 +492,8 @@ body.flow-collapsed .flow-pane {
 }
 
 .activity {
-  min-height: 0;
-  overflow: hidden;
+  min-height: 146px;
+  overflow: visible;
 }
 
 .activity-title {
@@ -514,8 +515,8 @@ body.flow-collapsed .flow-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: calc(100vh - 860px);
-  min-height: 96px;
+  height: 104px;
+  min-height: 104px;
   overflow-y: auto;
   border-top: 1px solid var(--soft-line);
   padding-top: 12px;

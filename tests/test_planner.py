@@ -100,6 +100,36 @@ class PlannerTests(unittest.TestCase):
         self.assertTrue(llm.last_kwargs["stream"])
         self.assertIs(llm.last_kwargs["on_delta"], on_delta)
 
+    def test_planner_tolerates_missing_instruction_field(self) -> None:
+        node = PlannerNode(
+            llm=FakeLLM(
+                """
+                {
+                  "deliverable_question": "Question",
+                  "summary": "Search and write.",
+                  "steps": [
+                    {
+                      "id": "s1",
+                      "capability": "search_science_knowledge_base",
+                      "task": "Search relevant FT catalyst stability evidence.",
+                      "output": "Evidence snippets.",
+                      "depends_on": []
+                    }
+                  ]
+                }
+                """
+            )
+        )
+
+        action, state = node.exec({"question": "Question"})
+
+        self.assertEqual(action, "planned")
+        self.assertEqual(
+            state["planner_plan"].steps[0].instruction,
+            "Search relevant FT catalyst stability evidence.",
+        )
+        self.assertEqual(state["planner_plan"].steps[0].expected_output, "Evidence snippets.")
+
     def test_planner_rejects_unknown_capability(self) -> None:
         node = PlannerNode(
             llm=FakeLLM(

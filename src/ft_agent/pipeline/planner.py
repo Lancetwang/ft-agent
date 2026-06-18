@@ -74,11 +74,23 @@ class PlanStep:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> PlanStep:
+        capability = _required_text(data, "capability")
+        expected_output = _step_text(
+            data,
+            "expected_output",
+            aliases=("output", "result", "deliverable"),
+            default=f"Output from {capability}.",
+        )
         return cls(
             id=_required_text(data, "id"),
-            capability=_required_text(data, "capability"),
-            instruction=_required_text(data, "instruction"),
-            expected_output=_required_text(data, "expected_output"),
+            capability=capability,
+            instruction=_step_text(
+                data,
+                "instruction",
+                aliases=("task", "description", "action", "objective"),
+                default=expected_output,
+            ),
+            expected_output=expected_output,
             depends_on=[
                 str(item).strip()
                 for item in data.get("depends_on", [])
@@ -306,6 +318,25 @@ def _required_text(data: Mapping[str, Any], key: str) -> str:
     if text is None:
         raise PlannerParseError(f"Missing required plan field: {key}.")
     return text
+
+
+def _step_text(
+    data: Mapping[str, Any],
+    key: str,
+    *,
+    aliases: Sequence[str] = (),
+    default: str | None = None,
+) -> str:
+    text = _optional_text(data.get(key))
+    if text is not None:
+        return text
+    for alias in aliases:
+        text = _optional_text(data.get(alias))
+        if text is not None:
+            return text
+    if default is not None:
+        return default
+    raise PlannerParseError(f"Missing required plan field: {key}.")
 
 
 def _optional_text(value: Any) -> str | None:
