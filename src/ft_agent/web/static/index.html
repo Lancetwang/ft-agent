@@ -135,9 +135,23 @@
         <section class="artifact-box">
           <p class="eyebrow">Artifact</p>
           <div id="artifactSummary">No report yet</div>
+          <button class="preview-button" id="previewReport" type="button" hidden>Preview Markdown</button>
         </section>
       </aside>
     </main>
+
+    <section class="report-preview" id="reportPreview" aria-label="Markdown report preview" hidden>
+      <div class="preview-panel">
+        <header class="preview-header">
+          <div>
+            <p class="eyebrow">Markdown Preview</p>
+            <h2 id="previewTitle">Report</h2>
+          </div>
+          <button class="close-flow" id="closePreview" type="button">Close</button>
+        </header>
+        <pre id="previewContent"></pre>
+      </div>
+    </section>
 
     <script src="/static/app.js"></script>
   </body>

@@ -511,6 +511,21 @@ body.flow-collapsed .flow-pane {
   font-size: 13px;
 }
 
+.preview-button {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 247, 0.78);
+  color: var(--blue);
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.preview-button:hover {
+  border-color: rgba(49, 95, 136, 0.42);
+}
+
 .activity-log {
   display: flex;
   flex-direction: column;
@@ -530,6 +545,56 @@ body.flow-collapsed .flow-pane {
 
 .activity-item strong {
   color: var(--ink);
+}
+
+.report-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: rgba(21, 21, 21, 0.22);
+  padding: 28px;
+}
+
+.report-preview[hidden] {
+  display: none;
+}
+
+.preview-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(960px, 100%);
+  height: min(820px, 92vh);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-2);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--soft-line);
+  padding: 20px 22px;
+}
+
+.preview-header h2 {
+  font-size: 22px;
+}
+
+#previewContent {
+  margin: 0;
+  overflow: auto;
+  padding: 24px;
+  white-space: pre-wrap;
+  color: #22201c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.62;
 }
 
 .sr-only {

@@ -12,11 +12,17 @@ const flowToggle = document.querySelector("#flowToggle");
 const closeFlow = document.querySelector("#closeFlow");
 const artifactPath = document.querySelector("#artifactPath");
 const artifactSummary = document.querySelector("#artifactSummary");
+const previewReport = document.querySelector("#previewReport");
+const reportPreview = document.querySelector("#reportPreview");
+const closePreview = document.querySelector("#closePreview");
+const previewTitle = document.querySelector("#previewTitle");
+const previewContent = document.querySelector("#previewContent");
 
 let conversationState = null;
 let running = false;
 let streamingAssistant = null;
 let lastRouterAction = null;
+let currentReportPath = "";
 
 if (window.matchMedia("(max-width: 1100px)").matches) {
   setFlowOpen(false);
@@ -49,6 +55,14 @@ closeFlow.addEventListener("click", () => {
 
 clearLog.addEventListener("click", () => {
   activityLog.replaceChildren();
+});
+
+previewReport.addEventListener("click", () => {
+  openReportPreview();
+});
+
+closePreview.addEventListener("click", () => {
+  reportPreview.hidden = true;
 });
 
 async function submitMessage() {
@@ -137,7 +151,7 @@ function handleEvent(event) {
         addMessage("assistant", event.answer);
       }
     }
-    updateArtifact(event.answer || "");
+    updateArtifact(event.answer || "", event.report_path || "");
     addActivity("complete", `Path: ${(event.path || []).join(" -> ")}`);
     markUnvisitedAsSkipped();
     return;
@@ -278,11 +292,34 @@ function markResource(toolName) {
   if (card) card.classList.add("used");
 }
 
-function updateArtifact(answer) {
+function updateArtifact(answer, reportPath = "") {
   const match = answer.match(/Report path:\s*([^\n]+)/);
-  const text = match ? match[1].trim() : "No report yet";
+  currentReportPath = reportPath || (match ? match[1].trim() : "");
+  const text = currentReportPath || "No report yet";
   artifactPath.textContent = text;
   artifactSummary.textContent = text;
+  previewReport.hidden = !currentReportPath;
+}
+
+async function openReportPreview() {
+  if (!currentReportPath) return;
+  previewReport.disabled = true;
+  previewReport.textContent = "Loading...";
+  try {
+    const response = await fetch(`/api/report?path=${encodeURIComponent(currentReportPath)}`);
+    if (!response.ok) {
+      throw new Error(`Unable to load report: ${response.status}`);
+    }
+    const data = await response.json();
+    previewTitle.textContent = data.path || currentReportPath;
+    previewContent.textContent = data.content || "";
+    reportPreview.hidden = false;
+  } catch (error) {
+    addActivity("error", error.message);
+  } finally {
+    previewReport.disabled = false;
+    previewReport.textContent = "Preview Markdown";
+  }
 }
 
 function setCardStatus(card, status) {

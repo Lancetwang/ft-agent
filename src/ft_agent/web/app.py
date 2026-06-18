@@ -3,14 +3,15 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from ft_agent import Agent
@@ -27,6 +28,7 @@ from ft_agent.pipeline import (
 
 
 STATIC_DIR = Path(__file__).with_name("static")
+REPORT_WORKSPACE = Path("artifacts").resolve()
 TOP_LEVEL_NODES = {
     "RouterNode",
     "PlannerNode",
@@ -43,6 +45,19 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/report")
+def report(path: str = Query(..., min_length=1)) -> JSONResponse:
+    resolved = _resolve_report_path(path)
+    if not resolved.exists() or not resolved.is_file():
+        raise HTTPException(status_code=404, detail="Report file not found.")
+    return JSONResponse(
+        {
+            "path": path,
+            "content": resolved.read_text(encoding="utf-8"),
+        }
+    )
 
 
 @app.post("/api/chat")
@@ -64,17 +79,30 @@ async def chat(request: Request) -> StreamingResponse:
 
     def worker() -> None:
         try:
-            payload = _build_payload(message, state, emit)
+            answer_streamed = {"value": False}
+
+            def emit_answer_delta(delta: str) -> None:
+                if delta:
+                    answer_streamed["value"] = True
+                    emit({"type": "answer_delta", "delta": delta})
+
+            payload = _build_payload(message, state, emit_answer_delta)
             agent = Agent(_build_flow())
             result = agent.run(
                 payload,
                 max_steps=24,
                 trace=make_trace_options(include=["node", "tool"], on_event=_trace_emitter(emit)),
             )
+            answer = str(result.payload.get("answer", ""))
+            if answer and not answer_streamed["value"]:
+                for chunk in _chunk_text(answer):
+                    emit({"type": "answer_delta", "delta": chunk})
+                    time.sleep(0.012)
             emit(
                 {
                     "type": "final",
-                    "answer": str(result.payload.get("answer", "")),
+                    "answer": answer,
+                    "report_path": result.payload.get("writer_report_path"),
                     "state": _response_state(result.payload, message),
                     "path": result.path,
                 }
@@ -117,13 +145,13 @@ def _build_flow() -> Flow:
 def _build_payload(
     message: str,
     state: Mapping[str, Any],
-    emit: Any,
+    emit_answer_delta: Any,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "question": message,
         "final_chat_kwargs": {
             "stream": True,
-            "on_delta": lambda delta: emit({"type": "answer_delta", "delta": delta}),
+            "on_delta": emit_answer_delta,
         },
     }
 
@@ -201,6 +229,26 @@ def _safe_json(value: Any) -> Any:
 
 def _to_line(event: dict[str, Any]) -> str:
     return json.dumps(event, ensure_ascii=False) + "\n"
+
+
+def _chunk_text(text: str, size: int = 24) -> list[str]:
+    chunks: list[str] = []
+    current = ""
+    for char in text:
+        current += char
+        if len(current) >= size or char in "\n。！？.!?":
+            chunks.append(current)
+            current = ""
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _resolve_report_path(path: str) -> Path:
+    candidate = (REPORT_WORKSPACE / path).resolve()
+    if REPORT_WORKSPACE != candidate and REPORT_WORKSPACE not in candidate.parents:
+        raise HTTPException(status_code=400, detail="Report path escapes workspace.")
+    return candidate
 
 
 def main() -> None:
