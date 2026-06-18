@@ -14,7 +14,12 @@
             <p class="eyebrow">Fischer-Tropsch agent</p>
             <h1>ft-agent</h1>
           </div>
-          <div class="run-state" id="runState">Idle</div>
+          <div class="top-actions">
+            <button class="flow-toggle" id="flowToggle" type="button" aria-expanded="true" aria-controls="flowPane">
+              Flow
+            </button>
+            <div class="run-state" id="runState">Idle</div>
+          </div>
         </header>
 
         <section class="letter-intro" id="intro">
@@ -36,63 +41,92 @@
             placeholder="Ask about Fischer-Tropsch catalyst experiments..."
           ></textarea>
           <button class="send-button" id="sendButton" type="submit" aria-label="Send message" title="Send">
-            <span aria-hidden="true">↑</span>
+            <span aria-hidden="true">&uarr;</span>
           </button>
         </form>
       </section>
 
-      <aside class="flow-pane" aria-label="Pipeline state">
+      <aside class="flow-pane" id="flowPane" aria-label="Pipeline state">
         <div class="flow-header">
-          <p class="eyebrow">Live flow</p>
-          <h2>Node trace</h2>
+          <div>
+            <p class="eyebrow">Live flow</p>
+            <h2>Pipeline map</h2>
+          </div>
+          <button class="close-flow" id="closeFlow" type="button" aria-label="Close flow panel">Close</button>
         </div>
 
-        <ol class="node-list" id="nodeList">
-          <li class="node-row" data-node="RouterNode">
-            <span class="node-marker"></span>
-            <div>
-              <strong>Router</strong>
-              <p>Scope and clarification</p>
-            </div>
-            <span class="node-status">waiting</span>
-          </li>
-          <li class="node-row" data-node="PlannerNode">
-            <span class="node-marker"></span>
-            <div>
-              <strong>Planner</strong>
-              <p>Actionable plan</p>
-            </div>
-            <span class="node-status">waiting</span>
-          </li>
-          <li class="node-row" data-node="WriterNode">
-            <span class="node-marker"></span>
-            <div>
-              <strong>Writer</strong>
-              <p>Retrieval and report draft</p>
-            </div>
-            <span class="node-status">waiting</span>
-          </li>
-          <li class="node-row" data-node="SupervisorNode">
-            <span class="node-marker"></span>
-            <div>
-              <strong>Supervisor</strong>
-              <p>Review and revision gate</p>
-            </div>
-            <span class="node-status">waiting</span>
-          </li>
-          <li class="node-row" data-node="FinalAnswerNode">
-            <span class="node-marker"></span>
-            <div>
-              <strong>Final</strong>
-              <p>User-facing answer</p>
-            </div>
-            <span class="node-status">waiting</span>
-          </li>
-        </ol>
+        <section class="flow-map" aria-label="Pipeline graph">
+          <svg class="flow-lines" viewBox="0 0 360 540" aria-hidden="true">
+            <path d="M180 58 L180 118" />
+            <path d="M180 92 L72 150 L72 210" />
+            <path d="M180 92 L288 150 L288 210" />
+            <path d="M180 178 L180 238" />
+            <path d="M180 298 L180 358" />
+            <path d="M180 318 L72 354" />
+            <path d="M180 318 L288 354" />
+            <path d="M180 418 L180 478" />
+            <path d="M180 438 L288 438 L288 298 L212 298" class="loop-line" />
+          </svg>
+
+          <article class="flow-card router" data-node="RouterNode">
+            <span class="flow-dot"></span>
+            <strong>Router</strong>
+            <small>scope / clarify</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card final irrelevant" data-node="FinalAnswerNode" data-alias="irrelevant">
+            <span class="flow-dot"></span>
+            <strong>Final</strong>
+            <small>irrelevant answer</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card clarify" data-alias="clarify">
+            <span class="flow-dot"></span>
+            <strong>Clarify</strong>
+            <small>ask user</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card planner" data-node="PlannerNode">
+            <span class="flow-dot"></span>
+            <strong>Planner</strong>
+            <small>make plan</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card writer" data-node="WriterNode">
+            <span class="flow-dot"></span>
+            <strong>Writer</strong>
+            <small>draft report</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card resource science" data-resource="science">
+            <strong>Science KB</strong>
+            <small>retrieval</small>
+          </article>
+          <article class="flow-card resource template" data-resource="template">
+            <strong>Template KB</strong>
+            <small>reference</small>
+          </article>
+          <article class="flow-card artifact" data-resource="artifact">
+            <strong>Report file</strong>
+            <small id="artifactPath">No report yet</small>
+          </article>
+          <article class="flow-card supervisor" data-node="SupervisorNode">
+            <span class="flow-dot"></span>
+            <strong>Supervisor</strong>
+            <small>review gate</small>
+            <em class="node-status">waiting</em>
+          </article>
+          <article class="flow-card final report" data-node="FinalAnswerNode" data-alias="report">
+            <span class="flow-dot"></span>
+            <strong>Final</strong>
+            <small>deliver report</small>
+            <em class="node-status">waiting</em>
+          </article>
+        </section>
 
         <section class="artifact-box">
           <p class="eyebrow">Artifact</p>
-          <div id="artifactPath">No report yet</div>
+          <div id="artifactSummary">No report yet</div>
         </section>
 
         <section class="activity">

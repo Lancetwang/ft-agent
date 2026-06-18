@@ -1,5 +1,5 @@
-const nodes = ["RouterNode", "PlannerNode", "WriterNode", "SupervisorNode", "FinalAnswerNode"];
-
+const body = document.body;
+const chatPane = document.querySelector(".chat-pane");
 const composer = document.querySelector("#composer");
 const input = document.querySelector("#messageInput");
 const sendButton = document.querySelector("#sendButton");
@@ -8,11 +8,19 @@ const intro = document.querySelector("#intro");
 const runState = document.querySelector("#runState");
 const activityLog = document.querySelector("#activityLog");
 const clearLog = document.querySelector("#clearLog");
+const flowToggle = document.querySelector("#flowToggle");
+const closeFlow = document.querySelector("#closeFlow");
 const artifactPath = document.querySelector("#artifactPath");
+const artifactSummary = document.querySelector("#artifactSummary");
 
 let conversationState = null;
 let running = false;
 let streamingAssistant = null;
+let lastRouterAction = null;
+
+if (window.matchMedia("(max-width: 1100px)").matches) {
+  setFlowOpen(false);
+}
 
 composer.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -21,7 +29,7 @@ composer.addEventListener("submit", (event) => {
 
 input.addEventListener("input", () => {
   input.style.height = "auto";
-  input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+  input.style.height = `${Math.min(input.scrollHeight, 140)}px`;
 });
 
 input.addEventListener("keydown", (event) => {
@@ -29,6 +37,14 @@ input.addEventListener("keydown", (event) => {
     event.preventDefault();
     submitMessage();
   }
+});
+
+flowToggle.addEventListener("click", () => {
+  setFlowOpen(body.classList.contains("flow-collapsed"));
+});
+
+closeFlow.addEventListener("click", () => {
+  setFlowOpen(false);
 });
 
 clearLog.addEventListener("click", () => {
@@ -40,14 +56,16 @@ async function submitMessage() {
   if (!text || running) return;
 
   running = true;
+  lastRouterAction = null;
   setRunState("Working", true);
   setInputEnabled(false);
-  resetNodes();
+  resetFlow();
   addMessage("user", text);
   streamingAssistant = null;
   input.value = "";
-  input.style.height = "auto";
+  input.style.height = "44px";
   intro.hidden = true;
+  chatPane.classList.add("has-chat");
 
   try {
     const response = await fetch("/api/chat", {
@@ -120,7 +138,7 @@ function handleEvent(event) {
       }
     }
     updateArtifact(event.answer || "");
-    addActivity("complete", `Path: ${(event.path || []).join(" → ")}`);
+    addActivity("complete", `Path: ${(event.path || []).join(" -> ")}`);
     markUnvisitedAsSkipped();
     return;
   }
@@ -132,22 +150,32 @@ function handleEvent(event) {
 }
 
 function handleNodeEvent(event) {
-  const row = document.querySelector(`[data-node="${event.node}"]`);
-  if (!row) return;
-  const status = row.querySelector(".node-status");
+  if (event.node === "RouterNode" && event.event === "node.end") {
+    lastRouterAction = event.action || null;
+    if (event.action === "clarify") {
+      markAlias("clarify", "done", "asked");
+    }
+  }
+
+  const cards = cardsForNode(event.node);
+  if (!cards.length) return;
 
   if (event.event === "node.start") {
-    row.classList.remove("done", "skipped");
-    row.classList.add("active");
-    status.textContent = "running";
+    for (const card of cards) {
+      card.classList.remove("done", "skipped");
+      card.classList.add("active");
+      setCardStatus(card, "running");
+    }
     addActivity("node", `${shortNode(event.node)} started`);
     return;
   }
 
   if (event.event === "node.end") {
-    row.classList.remove("active");
-    row.classList.add("done");
-    status.textContent = event.action || "done";
+    for (const card of cards) {
+      card.classList.remove("active");
+      card.classList.add("done");
+      setCardStatus(card, event.action || "done");
+    }
     addActivity("node", `${shortNode(event.node)} finished: ${event.action || "done"}`);
   }
 }
@@ -155,10 +183,26 @@ function handleNodeEvent(event) {
 function handleActivityEvent(event) {
   const data = event.data || {};
   if (event.event === "tool.call") {
-    addActivity("tool", `${data.name || "tool"} called`);
+    const name = data.name || "tool";
+    markResource(name);
+    addActivity("tool", `${name} called`);
   } else if (event.event === "tool.result") {
     addActivity("tool", `tool result${data.is_error ? " error" : ""}`);
   }
+}
+
+function cardsForNode(node) {
+  if (node !== "FinalAnswerNode") {
+    return [...document.querySelectorAll(`[data-node="${node}"]`)];
+  }
+
+  if (lastRouterAction === "irrelevant") {
+    return [...document.querySelectorAll('[data-alias="irrelevant"]')];
+  }
+  if (lastRouterAction === "clarify") {
+    return [...document.querySelectorAll('[data-alias="clarify"]')];
+  }
+  return [...document.querySelectorAll('[data-alias="report"]')];
 }
 
 function addMessage(role, text) {
@@ -196,27 +240,54 @@ function addActivity(kind, text) {
   activityLog.scrollTop = activityLog.scrollHeight;
 }
 
-function resetNodes() {
-  for (const node of nodes) {
-    const row = document.querySelector(`[data-node="${node}"]`);
-    row.classList.remove("active", "done", "skipped");
-    row.querySelector(".node-status").textContent = "waiting";
+function resetFlow() {
+  for (const card of document.querySelectorAll(".flow-card")) {
+    card.classList.remove("active", "done", "skipped", "used");
+    setCardStatus(card, "waiting");
   }
 }
 
 function markUnvisitedAsSkipped() {
-  for (const node of nodes) {
-    const row = document.querySelector(`[data-node="${node}"]`);
-    if (!row.classList.contains("done")) {
-      row.classList.add("skipped");
-      row.querySelector(".node-status").textContent = "skipped";
+  for (const card of document.querySelectorAll(".flow-card[data-node], .flow-card[data-alias]")) {
+    if (!card.classList.contains("done") && !card.classList.contains("active")) {
+      card.classList.add("skipped");
+      setCardStatus(card, "skipped");
     }
   }
 }
 
+function markAlias(alias, className, status) {
+  for (const card of document.querySelectorAll(`[data-alias="${alias}"]`)) {
+    card.classList.remove("active", "skipped");
+    card.classList.add(className);
+    setCardStatus(card, status);
+  }
+}
+
+function markResource(toolName) {
+  const map = {
+    search_science_knowledge_base: "science",
+    search_template_knowledge_base: "template",
+    write_file: "artifact",
+    read_file: "artifact",
+    edit_file: "artifact",
+  };
+  const resource = map[toolName];
+  if (!resource) return;
+  const card = document.querySelector(`[data-resource="${resource}"]`);
+  if (card) card.classList.add("used");
+}
+
 function updateArtifact(answer) {
   const match = answer.match(/Report path:\s*([^\n]+)/);
-  artifactPath.textContent = match ? match[1].trim() : "No report yet";
+  const text = match ? match[1].trim() : "No report yet";
+  artifactPath.textContent = text;
+  artifactSummary.textContent = text;
+}
+
+function setCardStatus(card, status) {
+  const statusEl = card.querySelector(".node-status");
+  if (statusEl) statusEl.textContent = status;
 }
 
 function setRunState(text, busy) {
@@ -227,6 +298,12 @@ function setRunState(text, busy) {
 function setInputEnabled(enabled) {
   input.disabled = !enabled;
   sendButton.disabled = !enabled;
+}
+
+function setFlowOpen(open) {
+  body.classList.toggle("flow-collapsed", !open);
+  flowToggle.setAttribute("aria-expanded", String(open));
+  flowToggle.textContent = open ? "Flow" : "Open flow";
 }
 
 function shortNode(node) {
