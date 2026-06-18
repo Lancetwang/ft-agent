@@ -66,6 +66,15 @@ class CoreFlowTests(unittest.TestCase):
 
         self.assertEqual([event.category for event in result.trace], ["flow"])
 
+    def test_flow_trace_can_emit_structured_events(self) -> None:
+        events = []
+        node = CallableNode(lambda payload: payload)
+
+        Flow(node).run({}, trace=make_trace_options(on_event=events.append))
+
+        self.assertEqual(events[0].event, "node.start")
+        self.assertEqual(events[0].node, "CallableNode")
+
     def test_flow_trace_does_not_leak_into_original_payload(self) -> None:
         def copy_payload(payload: dict) -> dict:
             return {"ok": payload.get("ok")}

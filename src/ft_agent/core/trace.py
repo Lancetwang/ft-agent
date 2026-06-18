@@ -38,6 +38,7 @@ class TraceOptions:
     include: frozenset[str] = DEFAULT_TRACE_CATEGORIES
     print_to_console: bool = False
     printer: Callable[[str], None] = print
+    on_event: Callable[[TraceEvent], None] | None = None
     trace_key: str = TRACE_KEY
 
     @classmethod
@@ -88,6 +89,9 @@ class TraceRecorder:
         )
         self.events.append(trace_event)
 
+        if self.options.on_event is not None:
+            self.options.on_event(trace_event)
+
         if self.options.print_to_console:
             self.options.printer(format_trace_event(trace_event))
 
@@ -107,6 +111,7 @@ def make_trace_options(
     include: Iterable[str] | None = None,
     print_to_console: bool = False,
     printer: Callable[[str], None] = print,
+    on_event: Callable[[TraceEvent], None] | None = None,
 ) -> TraceOptions:
     categories = DEFAULT_TRACE_CATEGORIES if include is None else frozenset(include)
     return TraceOptions(
@@ -114,6 +119,7 @@ def make_trace_options(
         include=categories,
         print_to_console=print_to_console,
         printer=printer,
+        on_event=on_event,
     )
 
 

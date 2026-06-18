@@ -6,12 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "chromadb>=1.5.9",
+    "fastapi>=0.137.1",
     "openai>=1.88.0",
     "python-dotenv>=1.0.1",
+    "uvicorn>=0.49.0",
 ]
 
 [project.scripts]
 ft-agent-check = "ft_agent.util.check_deepseek:main"
+ft-agent-web = "ft_agent.web.app:main"
 
 [build-system]
 requires = ["hatchling"]

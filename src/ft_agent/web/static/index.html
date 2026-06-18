@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ft-agent</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="chat-pane" aria-label="Conversation">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Fischer-Tropsch agent</p>
+            <h1>ft-agent</h1>
+          </div>
+          <div class="run-state" id="runState">Idle</div>
+        </header>
+
+        <section class="letter-intro" id="intro">
+          <p class="intro-kicker">Research workflow</p>
+          <h2>Ask for a catalyst report, then watch the agent move through its nodes.</h2>
+          <p>
+            The current skeleton routes questions, plans work, writes a report,
+            reviews it, and returns the final artifact.
+          </p>
+        </section>
+
+        <section class="messages" id="messages" aria-live="polite"></section>
+
+        <form class="composer" id="composer">
+          <label class="sr-only" for="messageInput">Message</label>
+          <textarea
+            id="messageInput"
+            rows="1"
+            placeholder="Ask about Fischer-Tropsch catalyst experiments..."
+          ></textarea>
+          <button class="send-button" id="sendButton" type="submit" aria-label="Send message" title="Send">
+            <span aria-hidden="true">↑</span>
+          </button>
+        </form>
+      </section>
+
+      <aside class="flow-pane" aria-label="Pipeline state">
+        <div class="flow-header">
+          <p class="eyebrow">Live flow</p>
+          <h2>Node trace</h2>
+        </div>
+
+        <ol class="node-list" id="nodeList">
+          <li class="node-row" data-node="RouterNode">
+            <span class="node-marker"></span>
+            <div>
+              <strong>Router</strong>
+              <p>Scope and clarification</p>
+            </div>
+            <span class="node-status">waiting</span>
+          </li>
+          <li class="node-row" data-node="PlannerNode">
+            <span class="node-marker"></span>
+            <div>
+              <strong>Planner</strong>
+              <p>Actionable plan</p>
+            </div>
+            <span class="node-status">waiting</span>
+          </li>
+          <li class="node-row" data-node="WriterNode">
+            <span class="node-marker"></span>
+            <div>
+              <strong>Writer</strong>
+              <p>Retrieval and report draft</p>
+            </div>
+            <span class="node-status">waiting</span>
+          </li>
+          <li class="node-row" data-node="SupervisorNode">
+            <span class="node-marker"></span>
+            <div>
+              <strong>Supervisor</strong>
+              <p>Review and revision gate</p>
+            </div>
+            <span class="node-status">waiting</span>
+          </li>
+          <li class="node-row" data-node="FinalAnswerNode">
+            <span class="node-marker"></span>
+            <div>
+              <strong>Final</strong>
+              <p>User-facing answer</p>
+            </div>
+            <span class="node-status">waiting</span>
+          </li>
+        </ol>
+
+        <section class="artifact-box">
+          <p class="eyebrow">Artifact</p>
+          <div id="artifactPath">No report yet</div>
+        </section>
+
+        <section class="activity">
+          <div class="activity-title">
+            <p class="eyebrow">Activity</p>
+            <button class="text-button" id="clearLog" type="button">Clear</button>
+          </div>
+          <div class="activity-log" id="activityLog"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

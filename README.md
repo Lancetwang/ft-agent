@@ -72,6 +72,16 @@ flowchart TD
 The current full path is `router -> planner -> writer -> supervisor -> final`.
 The writer and supervisor loop until the supervisor approves the report or the revision limit is reached.
 
+## Web UI
+
+Run the local web UI:
+
+```powershell
+uv run ft-agent-web
+```
+
+Then open http://127.0.0.1:8765. The UI has a conversation pane on the left and a live top-level node trace on the right.
+
 Run the local flow example:
 
 ```powershell
