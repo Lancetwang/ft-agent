@@ -109,12 +109,15 @@ class WriterNode(Node):
         chat_kwargs_key: str = "writer_chat_kwargs",
         action: str = "written",
         max_tool_rounds: int = 6,
+        max_report_attempts: int = 2,
         system_prompt: str = WRITER_SYSTEM_PROMPT,
         chat_kwargs: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__()
         if max_tool_rounds < 0:
             raise ValueError("max_tool_rounds must be non-negative.")
+        if max_report_attempts < 1:
+            raise ValueError("max_report_attempts must be at least 1.")
         self.llm = llm
         self.report_workspace = Path(report_workspace)
         self.default_report_path = default_report_path
@@ -132,6 +135,7 @@ class WriterNode(Node):
         self.chat_kwargs_key = chat_kwargs_key
         self.action = action
         self.max_tool_rounds = max_tool_rounds
+        self.max_report_attempts = max_report_attempts
         self.system_prompt = system_prompt
         self.chat_kwargs = dict(chat_kwargs or {})
 
@@ -194,15 +198,14 @@ class WriterNode(Node):
             {
                 "role": "user",
                 "content": (
-                    "Write the final experiment report now. Use the plan and any "
-                    "retrieved scientific context or template already available."
+                    "Write the final experiment report now as complete Markdown. "
+                    "Use the plan and any retrieved scientific context or template "
+                    "already available. Do not call tools, do not emit tool-call "
+                    "markup, and do not merely say the report was already written."
                 ),
             },
         ]
-        report = self.llm.chat(
-            final_messages,
-            **self._chat_kwargs(state, allow_stream=True),
-        )
+        report = self._generate_report(final_messages, state)
         report_path = str(state.get(self.report_path_key) or self.default_report_path)
         write_result = self._execute_tool(
             ToolCall(
@@ -219,6 +222,46 @@ class WriterNode(Node):
         state[self.messages_key] = final_messages + [{"role": "assistant", "content": report}]
         state[self.tool_results_key] = tool_results
         return self.action, state
+
+    def _generate_report(self, messages: list[Message], state: Mapping[str, Any]) -> str:
+        report_messages = list(messages)
+        report = ""
+        for attempt in range(1, self.max_report_attempts + 1):
+            report = self.llm.chat(
+                report_messages,
+                **self._chat_kwargs(state, allow_stream=False),
+            )
+            if not _looks_like_tool_markup(report):
+                self._emit_report_delta(report, state)
+                return report
+            if attempt < self.max_report_attempts:
+                report_messages.extend(
+                    [
+                        {"role": "assistant", "content": report},
+                        {
+                            "role": "user",
+                            "content": (
+                                "The previous response was a tool call or tool-call markup, "
+                                "not the experiment report. Write the complete Markdown "
+                                "experiment report content now. Do not call read_file, "
+                                "write_file, or any other tool. Do not include DSML, XML, "
+                                "or tool-call tags."
+                            ),
+                        },
+                    ]
+                )
+
+        raise ValueError("Writer produced tool-call markup instead of a report.")
+
+    def _emit_report_delta(self, report: str, state: Mapping[str, Any]) -> None:
+        chat_kwargs = self._chat_kwargs(state, allow_stream=True)
+        if not chat_kwargs.get("stream"):
+            return
+        on_delta = chat_kwargs.get("on_delta")
+        if not callable(on_delta):
+            return
+        for chunk in _chunk_text(report):
+            on_delta(chunk)
 
     def _execute_tool(
         self,
@@ -311,3 +354,28 @@ def _with_file_tools(tools: Sequence[Tool], report_workspace: str | Path) -> lis
             merged.append(file_tool)
             names.add(file_tool.name)
     return merged
+
+
+def _looks_like_tool_markup(content: str) -> bool:
+    lowered = content.lower()
+    markers = (
+        "tool_calls",
+        "invoke name=",
+        "read_file",
+        "write_file",
+        "dsml",
+    )
+    return any(marker in lowered for marker in markers)
+
+
+def _chunk_text(text: str, size: int = 32) -> list[str]:
+    chunks: list[str] = []
+    current = ""
+    for char in text:
+        current += char
+        if len(current) >= size or char in "\n。！？.!?":
+            chunks.append(current)
+            current = ""
+    if current:
+        chunks.append(current)
+    return chunks

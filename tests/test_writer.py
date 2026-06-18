@@ -48,6 +48,15 @@ class FakeLLM:
         return "Final report"
 
 
+class ToolMarkupThenReportLLM(FakeLLM):
+    def chat(self, messages, **kwargs):
+        self.chat_calls += 1
+        self.last_chat_kwargs = kwargs
+        if self.chat_calls == 1:
+            return '<DSML tool_calls><invoke name="read_file"></invoke>'
+        return "# Final report\n\nActual report content."
+
+
 def sample_plan() -> PlannerPlan:
     return PlannerPlan(
         deliverable_question="Design an experiment report for cobalt FT catalyst stability.",
@@ -108,8 +117,19 @@ class WriterTests(unittest.TestCase):
                 }
             )
 
-        self.assertEqual(seen, ["Final ", "report"])
-        self.assertTrue(llm.last_chat_kwargs["stream"])
+        self.assertEqual(seen, ["Final report"])
+        self.assertNotIn("stream", llm.last_chat_kwargs)
+
+    def test_writer_retries_tool_markup_report(self) -> None:
+        llm = ToolMarkupThenReportLLM()
+        with TemporaryDirectory() as temp_dir:
+            node = WriterNode(llm=llm, report_workspace=temp_dir)
+
+            _, state = node.exec({"planner_plan": sample_plan()})
+
+        self.assertEqual(llm.chat_calls, 2)
+        self.assertEqual(state["writer_report"], "# Final report\n\nActual report content.")
+        self.assertNotIn("tool_calls", state["writer_report"])
 
     def test_writer_emits_tool_trace_events(self) -> None:
         llm = FakeLLM()
