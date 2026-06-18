@@ -144,9 +144,10 @@ function handleEvent(event) {
 
   if (event.type === "final") {
     conversationState = event.state || null;
-    if (event.answer && (!streamingAssistant || streamingAssistant.textContent.trim() !== event.answer.trim())) {
+    const currentAnswer = streamingAssistant ? streamingAssistant.dataset.raw || "" : "";
+    if (event.answer && (!streamingAssistant || currentAnswer.trim() !== event.answer.trim())) {
       if (streamingAssistant) {
-        streamingAssistant.textContent = event.answer;
+        setMessageContent(streamingAssistant, event.answer, true);
       } else {
         addMessage("assistant", event.answer);
       }
@@ -227,9 +228,12 @@ function addMessage(role, text) {
   label.className = "message-label";
   label.textContent = role === "user" ? "You" : "ft-agent";
 
-  const content = document.createElement("p");
+  const content = document.createElement("div");
   content.className = "message-content";
-  content.textContent = text;
+  if (role === "assistant") {
+    content.classList.add("markdown-body");
+  }
+  setMessageContent(content, text, role === "assistant");
 
   wrapper.append(label, content);
   messages.append(wrapper);
@@ -241,7 +245,8 @@ function appendAssistantDelta(delta) {
   if (!streamingAssistant) {
     streamingAssistant = addMessage("assistant", "");
   }
-  streamingAssistant.textContent += delta;
+  const nextText = (streamingAssistant.dataset.raw || "") + delta;
+  setMessageContent(streamingAssistant, nextText, true);
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -312,7 +317,8 @@ async function openReportPreview() {
     }
     const data = await response.json();
     previewTitle.textContent = data.path || currentReportPath;
-    previewContent.textContent = data.content || "";
+    previewContent.dataset.raw = data.content || "";
+    previewContent.innerHTML = renderMarkdown(data.content || "");
     reportPreview.hidden = false;
   } catch (error) {
     addActivity("error", error.message);
@@ -347,10 +353,140 @@ function shortNode(node) {
   return node.replace("Node", "");
 }
 
+function setMessageContent(element, text, markdown) {
+  element.dataset.raw = text || "";
+  if (markdown) {
+    element.innerHTML = renderMarkdown(text || "");
+  } else {
+    element.textContent = text || "";
+  }
+}
+
+function renderMarkdown(value) {
+  const lines = String(value || "").replace(/\r\n?/g, "\n").split("\n");
+  const html = [];
+  let paragraph = [];
+  let listType = "";
+  let inCode = false;
+  let codeLines = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    html.push(`<p>${renderInline(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!listType) return;
+    html.push(`</${listType}>`);
+    listType = "";
+  };
+
+  const openList = (type) => {
+    if (listType === type) return;
+    flushParagraph();
+    flushList();
+    listType = type;
+    html.push(`<${type}>`);
+  };
+
+  for (const line of lines) {
+    const fence = line.match(/^```[\w-]*\s*$/);
+    if (inCode) {
+      if (fence) {
+        html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+        inCode = false;
+        codeLines = [];
+      } else {
+        codeLines.push(line);
+      }
+      continue;
+    }
+
+    if (fence) {
+      flushParagraph();
+      flushList();
+      inCode = true;
+      codeLines = [];
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    if (/^\s*---+\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      html.push("<hr>");
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = Math.min(heading[1].length, 4);
+      html.push(`<h${level}>${renderInline(heading[2].trim())}</h${level}>`);
+      continue;
+    }
+
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (unordered) {
+      openList("ul");
+      html.push(`<li>${renderInline(unordered[1].trim())}</li>`);
+      continue;
+    }
+
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (ordered) {
+      openList("ol");
+      html.push(`<li>${renderInline(ordered[1].trim())}</li>`);
+      continue;
+    }
+
+    flushList();
+    paragraph.push(line.trim());
+  }
+
+  if (inCode) {
+    html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+  }
+  flushParagraph();
+  flushList();
+  return html.join("");
+}
+
+function renderInline(value) {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_match, label, url) => {
+      const safe = safeLink(url);
+      if (!safe) return label;
+      return `<a href="${escapeHtml(safe)}" target="_blank" rel="noreferrer">${label}</a>`;
+    });
+}
+
+function safeLink(value) {
+  try {
+    if (String(value).startsWith("#")) return value;
+    const url = new URL(value, window.location.origin);
+    if (["http:", "https:", "mailto:"].includes(url.protocol)) return url.href;
+  } catch (_error) {
+    return "";
+  }
+  return "";
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

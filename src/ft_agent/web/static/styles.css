@@ -163,6 +163,7 @@ h1 {
   max-width: 1240px;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 26px 6px 36px 0;
 }
 
@@ -216,6 +217,10 @@ h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 16px;
   line-height: 1.62;
+}
+
+.message-content.markdown-body {
+  white-space: normal;
 }
 
 .message.user .message-content {
@@ -285,6 +290,7 @@ h1 {
   height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-left: 1px solid var(--line);
   background: rgba(250, 247, 239, 0.95);
   box-shadow: -24px 0 70px rgba(42, 34, 22, 0.06);
@@ -533,6 +539,7 @@ body.flow-collapsed .flow-pane {
   height: 104px;
   min-height: 104px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-top: 1px solid var(--soft-line);
   padding-top: 12px;
 }
@@ -589,12 +596,144 @@ body.flow-collapsed .flow-pane {
 #previewContent {
   margin: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 24px;
-  white-space: pre-wrap;
   color: #22201c;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 16px;
   line-height: 1.62;
+}
+
+.messages,
+.flow-pane,
+.activity-log,
+#previewContent {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(112, 106, 96, 0.34) transparent;
+}
+
+.messages::-webkit-scrollbar,
+.flow-pane::-webkit-scrollbar,
+.activity-log::-webkit-scrollbar,
+#previewContent::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.messages::-webkit-scrollbar-track,
+.flow-pane::-webkit-scrollbar-track,
+.activity-log::-webkit-scrollbar-track,
+#previewContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb,
+.flow-pane::-webkit-scrollbar-thumb,
+.activity-log::-webkit-scrollbar-thumb,
+#previewContent::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 4px solid transparent;
+  border-radius: 999px;
+  background: rgba(112, 106, 96, 0.28);
+  background-clip: content-box;
+}
+
+.messages:hover::-webkit-scrollbar-thumb,
+.flow-pane:hover::-webkit-scrollbar-thumb,
+.activity-log:hover::-webkit-scrollbar-thumb,
+#previewContent:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(49, 95, 136, 0.38);
+}
+
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  color: #171511;
+  font-family: inherit;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+.markdown-body h1 {
+  margin: 0 0 18px;
+  font-size: 28px;
+  line-height: 1.18;
+}
+
+.markdown-body h2 {
+  margin: 24px 0 10px;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 18px 0 8px;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.markdown-body p {
+  margin: 0 0 14px;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 16px;
+  padding-left: 24px;
+}
+
+.markdown-body li {
+  margin: 5px 0;
+}
+
+.markdown-body strong {
+  font-weight: 760;
+}
+
+.markdown-body a {
+  color: var(--blue);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.markdown-body code {
+  border: 1px solid var(--soft-line);
+  border-radius: 5px;
+  background: rgba(232, 238, 240, 0.58);
+  padding: 1px 5px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+}
+
+.markdown-body pre {
+  overflow: auto;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: rgba(255, 253, 247, 0.72);
+  padding: 14px;
+}
+
+.markdown-body pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.markdown-body hr {
+  height: 1px;
+  border: 0;
+  background: var(--soft-line);
+  margin: 20px 0;
 }
 
 .sr-only {
