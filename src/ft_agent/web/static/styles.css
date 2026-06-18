@@ -90,7 +90,6 @@ h1 {
   line-height: 1;
 }
 
-.run-state,
 .flow-toggle,
 .close-flow {
   border: 1px solid var(--line);
@@ -111,11 +110,6 @@ h1 {
 .close-flow:hover {
   border-color: rgba(49, 95, 136, 0.42);
   color: var(--blue);
-}
-
-.run-state.busy {
-  color: var(--blue);
-  border-color: rgba(49, 95, 136, 0.35);
 }
 
 .letter-intro {

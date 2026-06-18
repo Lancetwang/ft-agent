@@ -5,7 +5,6 @@ const input = document.querySelector("#messageInput");
 const sendButton = document.querySelector("#sendButton");
 const messages = document.querySelector("#messages");
 const intro = document.querySelector("#intro");
-const runState = document.querySelector("#runState");
 const activityLog = document.querySelector("#activityLog");
 const clearLog = document.querySelector("#clearLog");
 const flowToggle = document.querySelector("#flowToggle");
@@ -74,7 +73,6 @@ async function submitMessage() {
 
   running = true;
   lastRouterAction = null;
-  setRunState("Working", true);
   setInputEnabled(false);
   resetFlow();
   addMessage("user", text);
@@ -102,7 +100,6 @@ async function submitMessage() {
   } finally {
     running = false;
     streamingAssistant = null;
-    setRunState("Idle", false);
     setInputEnabled(true);
     input.focus();
   }
@@ -471,11 +468,6 @@ async function openReportPreview() {
 function setCardStatus(card, status) {
   const statusEl = card.querySelector(".node-status");
   if (statusEl) statusEl.textContent = status;
-}
-
-function setRunState(text, busy) {
-  runState.textContent = text;
-  runState.classList.toggle("busy", busy);
 }
 
 function setInputEnabled(enabled) {
