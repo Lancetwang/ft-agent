@@ -45,6 +45,33 @@ classify_node - "question" >> answer_question_node
 classify_node - "statement" >> answer_statement_node
 ```
 
+## FT Pipeline
+
+```mermaid
+flowchart TD
+    User["User question"] --> Router["RouterNode"]
+
+    Router -->|"irrelevant"| FinalIrrelevant["FinalAnswerNode<br/>normal LLM answer"]
+    Router -->|"clarify"| Clarify["FinalAnswerNode<br/>clarification question"]
+    Clarify --> UserReply["User clarification"]
+    UserReply --> Router
+
+    Router -->|"ready"| Planner["PlannerNode"]
+    Planner -->|"planned"| Writer["WriterNode"]
+
+    Writer -->|"uses tools"| ScienceKB["search_science_knowledge_base<br/>mock ChromaDB-ready retrieval"]
+    Writer -->|"uses tools"| TemplateKB["search_template_knowledge_base<br/>mock template retrieval"]
+    Writer -->|"writes artifact"| ReportFile["artifacts/reports/latest.md"]
+
+    Writer -->|"written"| Supervisor["SupervisorNode"]
+    Supervisor -->|"reads artifact"| ReportFile
+    Supervisor -->|"revise"| Writer
+    Supervisor -->|"approved"| FinalReport["FinalAnswerNode<br/>deliver final report"]
+```
+
+The current full path is `router -> planner -> writer -> supervisor -> final`.
+The writer and supervisor loop until the supervisor approves the report or the revision limit is reached.
+
 Run the local flow example:
 
 ```powershell
