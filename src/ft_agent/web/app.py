@@ -78,6 +78,8 @@ async def chat(request: Request) -> StreamingResponse:
         event_queue.put(event)
 
     def worker() -> None:
+        started = time.perf_counter()
+        metrics = _new_metrics()
         try:
             answer_streamed = {"value": False}
 
@@ -91,13 +93,17 @@ async def chat(request: Request) -> StreamingResponse:
             result = agent.run(
                 payload,
                 max_steps=24,
-                trace=make_trace_options(include=["node", "tool"], on_event=_trace_emitter(emit)),
+                trace=make_trace_options(
+                    include=["node", "tool", "llm", "plan"],
+                    on_event=_trace_emitter(emit, metrics),
+                ),
             )
             answer = str(result.payload.get("answer", ""))
             if answer and not answer_streamed["value"]:
                 for chunk in _chunk_text(answer):
                     emit({"type": "answer_delta", "delta": chunk})
                     time.sleep(0.012)
+            metrics["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
             emit(
                 {
                     "type": "final",
@@ -105,10 +111,12 @@ async def chat(request: Request) -> StreamingResponse:
                     "report_path": result.payload.get("writer_report_path"),
                     "state": _response_state(result.payload, message),
                     "path": result.path,
+                    "metrics": _public_metrics(metrics),
                 }
             )
         except Exception as exc:
-            emit({"type": "error", "message": str(exc)})
+            metrics["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
+            emit({"type": "error", "message": str(exc), "metrics": _public_metrics(metrics)})
         finally:
             event_queue.put(None)
 
@@ -167,8 +175,25 @@ def _build_payload(
     return payload
 
 
-def _trace_emitter(emit: Any):
+def _trace_emitter(emit: Any, metrics: dict[str, Any]):
     def on_event(event: TraceEvent) -> None:
+        if event.category == "llm":
+            _record_llm_metrics(metrics, event.data)
+            return
+
+        if event.category == "plan" and event.event == "plan.created":
+            emit(
+                {
+                    "type": "plan",
+                    "event": event.event,
+                    "node": event.node,
+                    "step": event.step,
+                    "data": _safe_json(event.data),
+                    "timestamp": event.timestamp,
+                }
+            )
+            return
+
         if event.category == "node" and event.node in TOP_LEVEL_NODES:
             emit(
                 {
@@ -196,6 +221,37 @@ def _trace_emitter(emit: Any):
             )
 
     return on_event
+
+
+def _new_metrics() -> dict[str, Any]:
+    return {
+        "elapsed_ms": 0,
+        "llm_calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
+
+
+def _record_llm_metrics(metrics: dict[str, Any], data: Mapping[str, Any]) -> None:
+    metrics["llm_calls"] = int(metrics.get("llm_calls", 0)) + 1
+    usage = data.get("usage")
+    if not isinstance(usage, Mapping):
+        return
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = usage.get(key)
+        if isinstance(value, (int, float)):
+            metrics[key] = int(metrics.get(key, 0)) + int(value)
+
+
+def _public_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "elapsed_ms": metrics.get("elapsed_ms", 0),
+        "llm_calls": metrics.get("llm_calls", 0),
+        "prompt_tokens": metrics.get("prompt_tokens", 0),
+        "completion_tokens": metrics.get("completion_tokens", 0),
+        "total_tokens": metrics.get("total_tokens", 0),
+    }
 
 
 def _response_state(payload: Mapping[str, Any], fallback_question: str) -> dict[str, Any]:

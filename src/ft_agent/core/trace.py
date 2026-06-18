@@ -7,7 +7,7 @@ from typing import Any
 import time
 
 TRACE_KEY = "_ft_agent_trace"
-DEFAULT_TRACE_CATEGORIES = frozenset({"flow", "node", "tool"})
+DEFAULT_TRACE_CATEGORIES = frozenset({"flow", "node", "tool", "llm", "plan"})
 
 
 @dataclass(frozen=True)

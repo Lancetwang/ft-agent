@@ -23,6 +23,9 @@ let running = false;
 let streamingAssistant = null;
 let lastRouterAction = null;
 let currentReportPath = "";
+let planCard = null;
+let planStepItems = new Map();
+let activePlanCapability = "";
 
 if (window.matchMedia("(max-width: 1100px)").matches) {
   setFlowOpen(false);
@@ -137,6 +140,11 @@ function handleEvent(event) {
     return;
   }
 
+  if (event.type === "plan") {
+    showPlanCard(event.data ? event.data.plan : null);
+    return;
+  }
+
   if (event.type === "answer_delta") {
     appendAssistantDelta(event.delta || "");
     return;
@@ -145,22 +153,27 @@ function handleEvent(event) {
   if (event.type === "final") {
     conversationState = event.state || null;
     const currentAnswer = streamingAssistant ? streamingAssistant.dataset.raw || "" : "";
+    let answerContent = streamingAssistant;
     if (event.answer && (!streamingAssistant || currentAnswer.trim() !== event.answer.trim())) {
       if (streamingAssistant) {
         setMessageContent(streamingAssistant, event.answer, true);
       } else {
-        addMessage("assistant", event.answer);
+        answerContent = addMessage("assistant", event.answer);
       }
     }
+    addMessageMeta(answerContent, event.metrics);
     updateArtifact(event.answer || "", event.report_path || "");
     addActivity("complete", `Path: ${(event.path || []).join(" -> ")}`);
     markUnvisitedAsSkipped();
+    completePlanCard();
     return;
   }
 
   if (event.type === "error") {
-    addMessage("assistant", event.message || "Unknown error");
+    const errorContent = addMessage("assistant", event.message || "Unknown error");
+    addMessageMeta(errorContent, event.metrics);
     addActivity("error", event.message || "Unknown error");
+    completePlanCard();
   }
 }
 
@@ -192,6 +205,9 @@ function handleNodeEvent(event) {
       setCardStatus(card, event.action || "done");
     }
     addActivity("node", `${shortNode(event.node)} finished: ${event.action || "done"}`);
+    if (event.node === "WriterNode") {
+      completePlanCard();
+    }
   }
 }
 
@@ -200,8 +216,16 @@ function handleActivityEvent(event) {
   if (event.event === "tool.call") {
     const name = data.name || "tool";
     markResource(name);
+    activePlanCapability = planCapabilityForTool(name);
+    if (activePlanCapability) {
+      markPlanStep(activePlanCapability, "active");
+    }
     addActivity("tool", `${name} called`);
   } else if (event.event === "tool.result") {
+    if (activePlanCapability) {
+      markPlanStep(activePlanCapability, "done");
+      activePlanCapability = "";
+    }
     addActivity("tool", `tool result${data.is_error ? " error" : ""}`);
   }
 }
@@ -241,6 +265,31 @@ function addMessage(role, text) {
   return content;
 }
 
+function addMessageMeta(content, metrics) {
+  if (!content || !metrics) return;
+  const wrapper = content.closest(".message");
+  if (!wrapper) return;
+  const existing = wrapper.querySelector(".message-meta");
+  if (existing) existing.remove();
+
+  const elapsed = formatElapsed(metrics.elapsed_ms);
+  const totalTokens = Number(metrics.total_tokens || 0);
+  const calls = Number(metrics.llm_calls || 0);
+  const promptTokens = Number(metrics.prompt_tokens || 0);
+  const completionTokens = Number(metrics.completion_tokens || 0);
+  const tokenText = totalTokens > 0
+    ? `${totalTokens.toLocaleString()} tokens`
+    : "tokens unavailable";
+  const detail = totalTokens > 0
+    ? `prompt ${promptTokens.toLocaleString()} · completion ${completionTokens.toLocaleString()}`
+    : `${calls.toLocaleString()} LLM calls`;
+
+  const meta = document.createElement("div");
+  meta.className = "message-meta";
+  meta.textContent = `${tokenText} · ${elapsed} · ${detail}`;
+  wrapper.append(meta);
+}
+
 function appendAssistantDelta(delta) {
   if (!streamingAssistant) {
     streamingAssistant = addMessage("assistant", "");
@@ -260,6 +309,8 @@ function addActivity(kind, text) {
 }
 
 function resetFlow() {
+  completePlanCard();
+  activePlanCapability = "";
   for (const card of document.querySelectorAll(".flow-card")) {
     card.classList.remove("active", "done", "skipped", "used");
     setCardStatus(card, "waiting");
@@ -304,6 +355,95 @@ function updateArtifact(answer, reportPath = "") {
   artifactPath.textContent = text;
   artifactSummary.textContent = text;
   previewReport.hidden = !currentReportPath;
+}
+
+function showPlanCard(plan) {
+  if (!plan || !Array.isArray(plan.steps) || !plan.steps.length) return;
+  completePlanCard();
+
+  const wrapper = document.createElement("article");
+  wrapper.className = "message assistant plan-progress-message";
+
+  const label = document.createElement("p");
+  label.className = "message-label";
+  label.textContent = "plan";
+
+  const card = document.createElement("div");
+  card.className = "plan-card";
+
+  const title = document.createElement("div");
+  title.className = "plan-card-title";
+  title.innerHTML = `<strong>Execution plan</strong><span>tracking writer work</span>`;
+  card.append(title);
+
+  if (plan.summary) {
+    const summary = document.createElement("p");
+    summary.className = "plan-summary";
+    summary.textContent = plan.summary;
+    card.append(summary);
+  }
+
+  const list = document.createElement("ol");
+  list.className = "plan-steps";
+  planStepItems = new Map();
+  for (const step of plan.steps) {
+    const item = document.createElement("li");
+    item.className = "plan-step";
+    item.dataset.capability = step.capability || "";
+    item.innerHTML = `
+      <span class="plan-step-dot"></span>
+      <div>
+        <strong>${escapeHtml(step.id || "step")} · ${escapeHtml(step.capability || "task")}</strong>
+        <p>${escapeHtml(step.instruction || step.expected_output || "")}</p>
+      </div>
+    `;
+    list.append(item);
+    if (step.capability && !planStepItems.has(step.capability)) {
+      planStepItems.set(step.capability, []);
+    }
+    if (step.capability) {
+      planStepItems.get(step.capability).push(item);
+    }
+  }
+  card.append(list);
+
+  wrapper.append(label, card);
+  messages.append(wrapper);
+  planCard = wrapper;
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function markPlanStep(capability, status) {
+  const items = planStepItems.get(capability) || [];
+  if (!items.length) return;
+  const target = items.find((item) => !item.classList.contains("done")) || items[items.length - 1];
+  if (status === "active") {
+    target.classList.add("active");
+    target.classList.remove("done");
+  }
+  if (status === "done") {
+    target.classList.remove("active");
+    target.classList.add("done");
+  }
+}
+
+function completePlanCard() {
+  if (planCard) {
+    planCard.remove();
+  }
+  planCard = null;
+  planStepItems = new Map();
+  activePlanCapability = "";
+}
+
+function planCapabilityForTool(toolName) {
+  const map = {
+    search_science_knowledge_base: "search_science_knowledge_base",
+    search_template_knowledge_base: "search_template_knowledge_base",
+    write_file: "write_experimental_report",
+    edit_file: "write_experimental_report",
+  };
+  return map[toolName] || "";
 }
 
 async function openReportPreview() {
@@ -369,6 +509,7 @@ function renderMarkdown(value) {
   let listType = "";
   let inCode = false;
   let codeLines = [];
+  let index = 0;
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -390,7 +531,8 @@ function renderMarkdown(value) {
     html.push(`<${type}>`);
   };
 
-  for (const line of lines) {
+  while (index < lines.length) {
+    const line = lines[index];
     const fence = line.match(/^```[\w-]*\s*$/);
     if (inCode) {
       if (fence) {
@@ -400,6 +542,7 @@ function renderMarkdown(value) {
       } else {
         codeLines.push(line);
       }
+      index += 1;
       continue;
     }
 
@@ -408,12 +551,23 @@ function renderMarkdown(value) {
       flushList();
       inCode = true;
       codeLines = [];
+      index += 1;
       continue;
     }
 
     if (!line.trim()) {
       flushParagraph();
       flushList();
+      index += 1;
+      continue;
+    }
+
+    const table = collectTable(lines, index);
+    if (table) {
+      flushParagraph();
+      flushList();
+      html.push(renderTable(table.headers, table.rows));
+      index = table.nextIndex;
       continue;
     }
 
@@ -421,6 +575,7 @@ function renderMarkdown(value) {
       flushParagraph();
       flushList();
       html.push("<hr>");
+      index += 1;
       continue;
     }
 
@@ -430,6 +585,7 @@ function renderMarkdown(value) {
       flushList();
       const level = Math.min(heading[1].length, 4);
       html.push(`<h${level}>${renderInline(heading[2].trim())}</h${level}>`);
+      index += 1;
       continue;
     }
 
@@ -437,6 +593,7 @@ function renderMarkdown(value) {
     if (unordered) {
       openList("ul");
       html.push(`<li>${renderInline(unordered[1].trim())}</li>`);
+      index += 1;
       continue;
     }
 
@@ -444,11 +601,13 @@ function renderMarkdown(value) {
     if (ordered) {
       openList("ol");
       html.push(`<li>${renderInline(ordered[1].trim())}</li>`);
+      index += 1;
       continue;
     }
 
     flushList();
     paragraph.push(line.trim());
+    index += 1;
   }
 
   if (inCode) {
@@ -457,6 +616,75 @@ function renderMarkdown(value) {
   flushParagraph();
   flushList();
   return html.join("");
+}
+
+function collectTable(lines, startIndex) {
+  const rows = [];
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line.startsWith("|") || !line.includes("|")) break;
+    const parsedRows = parsePipeRows(line);
+    if (!parsedRows.length) break;
+    rows.push(...parsedRows);
+    index += 1;
+  }
+
+  const separatorIndex = rows.findIndex((row) => (
+    row.length > 0 && row.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")))
+  ));
+  if (separatorIndex < 1) return null;
+
+  const headers = rows[separatorIndex - 1];
+  const bodyRows = rows
+    .slice(separatorIndex + 1)
+    .filter((row) => row.length === headers.length);
+  if (!headers.length || !bodyRows.length) return null;
+
+  return {
+    headers,
+    rows: bodyRows,
+    nextIndex: index,
+  };
+}
+
+function parsePipeRows(line) {
+  const cells = line.split("|").map((cell) => cell.trim());
+  const rows = [];
+  let row = [];
+
+  for (const cell of cells) {
+    if (!cell) {
+      if (row.length) {
+        rows.push(row);
+        row = [];
+      }
+      continue;
+    }
+    row.push(cell);
+  }
+  if (row.length) {
+    rows.push(row);
+  }
+  return rows;
+}
+
+function renderTable(headers, rows) {
+  const head = headers
+    .map((cell) => `<th>${renderInline(cell)}</th>`)
+    .join("");
+  const body = rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${renderInline(cell)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function formatElapsed(milliseconds) {
+  const value = Number(milliseconds || 0);
+  if (!Number.isFinite(value) || value <= 0) return "time unavailable";
+  if (value < 1000) return `${Math.round(value)} ms`;
+  return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} s`;
 }
 
 function renderInline(value) {
@@ -490,3 +718,5 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+window.renderMarkdown = renderMarkdown;

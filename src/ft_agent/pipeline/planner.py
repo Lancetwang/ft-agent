@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ft_agent.core import ExecResult, Node, Payload
+from ft_agent.core.trace import get_trace_recorder
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
 from ft_agent.pipeline.router import RouterDecision
@@ -189,6 +190,13 @@ class PlannerNode(Node):
         )
         state[self.output_key] = plan
         state[self.raw_output_key] = content
+        recorder = get_trace_recorder(state)
+        if recorder is not None:
+            recorder.emit(
+                "plan.created",
+                category="plan",
+                data={"plan": plan.to_dict()},
+            )
         return self.action, state
 
     def _deliverable_question(self, state: Mapping[str, Any]) -> str:

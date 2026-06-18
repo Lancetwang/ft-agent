@@ -240,6 +240,41 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(result.action, "planned")
         self.assertEqual(result.payload["planner_plan"].steps[0].capability, capability.name)
 
+    def test_planner_emits_plan_trace_event(self) -> None:
+        node = PlannerNode(
+            llm=FakeLLM(
+                """
+                {
+                  "deliverable_question": "Question",
+                  "summary": "Search then write.",
+                  "steps": [
+                    {
+                      "id": "s1",
+                      "capability": "search_science_knowledge_base",
+                      "instruction": "Search relevant evidence.",
+                      "expected_output": "Evidence.",
+                      "depends_on": []
+                    },
+                    {
+                      "id": "s2",
+                      "capability": "write_experimental_report",
+                      "instruction": "Write the report.",
+                      "expected_output": "Report.",
+                      "depends_on": ["s1"]
+                    }
+                  ]
+                }
+                """
+            )
+        )
+
+        result = Flow(node).run({"question": "Question"}, trace=True)
+
+        plan_events = [event for event in result.trace if event.event == "plan.created"]
+        self.assertEqual(len(plan_events), 1)
+        self.assertEqual(plan_events[0].category, "plan")
+        self.assertEqual(plan_events[0].data["plan"]["steps"][1]["id"], "s2")
+
 
 if __name__ == "__main__":
     unittest.main()

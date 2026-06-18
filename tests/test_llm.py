@@ -1,6 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
+from ft_agent.core import CallableNode, Flow
 from ft_agent.config import DeepSeekConfig
 from ft_agent.llm.deepseek import DeepSeekLLM
 
@@ -96,6 +97,34 @@ class DeepSeekLLMTests(unittest.TestCase):
         self.assertEqual(message["role"], "assistant")
         self.assertEqual(message["tool_calls"], [tool_call])
         self.assertEqual(client.chat.completions.last_request["tools"][0]["type"], "function")
+
+    def test_chat_emits_llm_trace_usage(self) -> None:
+        response = SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="ok"),
+                )
+            ],
+            usage=SimpleNamespace(
+                prompt_tokens=3,
+                completion_tokens=2,
+                total_tokens=5,
+            ),
+        )
+        client = FakeClient(response)
+        llm = DeepSeekLLM(config=DeepSeekConfig(api_key="test"), client=client)
+
+        def call_llm(payload):
+            payload["content"] = llm.chat([{"role": "user", "content": "hello"}])
+            return payload
+
+        result = Flow(CallableNode(call_llm)).run({}, trace=True)
+
+        llm_events = [event for event in result.trace if event.category == "llm"]
+        self.assertEqual(result.payload["content"], "ok")
+        self.assertEqual(len(llm_events), 1)
+        self.assertEqual(llm_events[0].data["usage"]["total_tokens"], 5)
+        self.assertGreaterEqual(llm_events[0].data["elapsed_ms"], 0)
 
 
 if __name__ == "__main__":
