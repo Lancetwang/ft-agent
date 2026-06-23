@@ -5,7 +5,7 @@ from typing import Any
 from openai import OpenAI
 
 from ft_agent.config import DeepSeekConfig, load_deepseek_config
-from ft_agent.core.trace import get_trace_recorder
+from agent_core.core.trace import get_trace_recorder
 
 Message = Mapping[str, str]
 DeltaHandler = Callable[[str], None]

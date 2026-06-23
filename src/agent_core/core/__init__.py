@@ -1,6 +1,4 @@
-"""Compatibility wrapper for agent_core.core."""
-
-from agent_core.core import (
+from agent_core.core.node import (
     Action,
     CallableNode,
     ExecResult,
@@ -9,6 +7,8 @@ from agent_core.core import (
     FlowRunResult,
     Node,
     Payload,
+)
+from agent_core.core.trace import (
     TraceEvent,
     TraceOptions,
     TraceRecorder,

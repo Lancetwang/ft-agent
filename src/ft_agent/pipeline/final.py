@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from ft_agent.core import ExecResult, Node, Payload
+from agent_core import ExecResult, Node, Payload
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
 from ft_agent.pipeline.router import RouterDecision
