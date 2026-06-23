@@ -1,7 +1,7 @@
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from ft_agent.core import ExecResult, Node, Payload
+from agent_core import ExecResult, Node, Payload
 from ft_agent.llm.deepseek import DeepSeekLLM, Message
 
 

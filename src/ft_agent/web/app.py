@@ -14,8 +14,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from ft_agent import Agent
-from ft_agent.core import Flow, TraceEvent, make_trace_options
+from agent_core import Agent, Flow, TraceEvent, make_trace_options
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.pipeline import (
     FinalAnswerNode,

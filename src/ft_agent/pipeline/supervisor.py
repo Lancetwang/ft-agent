@@ -6,11 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ft_agent.core import ExecResult, Node, Payload
-from ft_agent.core.trace import get_trace_recorder
+from agent_core import ExecResult, Node, Payload
+from agent_core.core.trace import get_trace_recorder
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
-from ft_agent.tools import Tool, ToolCall, ToolExecutor, build_read_file_tool
+from agent_core import Tool, ToolCall, ToolExecutor, build_read_file_tool
 
 
 SUPERVISOR_SYSTEM_PROMPT = """

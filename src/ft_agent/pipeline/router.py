@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ft_agent.core import ExecResult, Node, Payload
+from agent_core import ExecResult, Node, Payload
 from ft_agent.llm import DeepSeekLLM
 from ft_agent.llm.deepseek import Message
 
