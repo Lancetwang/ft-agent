@@ -8,6 +8,12 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "agent-core-runtime"
+version = "0.1.0"
+source = { url = "https://github.com/Lancetwang/agent-core-runtime/archive/8bf92968291ba68711d2fce88f3c3865d6eae695.zip" }
+sdist = { hash = "sha256:6ea94518905289c21787e1a0e12ab2b0433b8e4d59ebc3e3f688f5306b60d09e" }
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.2"
 source = { registry = "https://pypi.org/simple" }
@@ -548,6 +554,7 @@ name = "ft-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agent-core-runtime" },
     { name = "chromadb" },
     { name = "fastapi" },
     { name = "openai" },
@@ -557,6 +564,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-core-runtime", url = "https://github.com/Lancetwang/agent-core-runtime/archive/8bf92968291ba68711d2fce88f3c3865d6eae695.zip" },
     { name = "chromadb", specifier = ">=1.5.9" },
     { name = "fastapi", specifier = ">=0.137.1" },
     { name = "openai", specifier = ">=1.88.0" },

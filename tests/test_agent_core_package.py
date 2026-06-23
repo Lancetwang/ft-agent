@@ -1,8 +1,10 @@
 import unittest
 
-from agent_core import Agent, CallableNode, Flow, Tool, tool
+from agent_core import Agent, CallableNode, Flow, RunContext, Tool, get_current_context, tool
 from ft_agent import Agent as FtAgent
 from ft_agent.core import Flow as FtFlow
+from ft_agent.core import RunContext as FtRunContext
+from ft_agent.core import get_current_context as ft_get_current_context
 from ft_agent.tools import Tool as FtTool
 
 
@@ -17,6 +19,8 @@ class AgentCorePackageTests(unittest.TestCase):
         self.assertIs(FtAgent, Agent)
         self.assertIs(FtFlow, Flow)
         self.assertIs(FtTool, Tool)
+        self.assertIs(FtRunContext, RunContext)
+        self.assertIs(ft_get_current_context, get_current_context)
 
     def test_agent_core_exports_tool_decorator(self) -> None:
         @tool(description="Echo text.")

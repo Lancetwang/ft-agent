@@ -16,7 +16,7 @@ FT-Agent treats an agent as a state flow:
 - `Tool` wraps ordinary Python functions as LLM-callable tools, including OpenAI-compatible schemas.
 - `Agent` is a thin runner around a `Flow`.
 
-The result is small enough to understand and modify, but complete enough for tool calls, streaming, trace events, file artifacts, and frontend visualization.
+These runtime primitives come from the standalone [agent-core-runtime](https://github.com/Lancetwang/agent-core-runtime) package. FT-Agent keeps `ft_agent.core`, `ft_agent.tools`, and `ft_agent.agent` as compatibility wrappers, while FT-specific behavior lives under `ft_agent.llm`, `ft_agent.pipeline`, and `ft_agent.web`.
 
 ```python
 classify_node - "question" >> answer_question_node
@@ -26,11 +26,13 @@ classify_node - "statement" >> answer_statement_node
 ## Project Layout
 
 ```text
+external dependency
+  agent-core-runtime    # Node, Flow, RunContext, tools, agent-loop nodes
 src/ft_agent/
-  agent.py              # Agent runner over a Flow
-  core/                 # Node, Flow, trace primitives
+  agent.py              # Compatibility wrapper over agent_core.Agent
+  core/                 # Compatibility wrappers over agent_core.core
   llm/                  # DeepSeek/OpenAI-compatible model calls
-  tools/                # Tool decorator, schema conversion, executor, file tools
+  tools/                # Compatibility wrappers over agent_core.tools
   pipeline/             # Fischer-Tropsch catalyst research pipeline
   web/                  # FastAPI web UI and static frontend
 examples/               # Runnable examples

@@ -16,7 +16,7 @@ FT-Agent 把 agent 看成一个状态流：
 - `Tool` 是可注册给 LLM 的函数能力，支持 `@tool` 装饰器和 `Annotated` 参数说明。
 - `Agent` 是对 `Flow` 的薄封装，负责运行整个流程。
 
-这种结构足够小，便于理解、调试和改造；也足够完整，可以承载工具调用、流式输出、trace、文件产物和前端展示。
+这些 runtime 元件来自独立的 [agent-core-runtime](https://github.com/Lancetwang/agent-core-runtime) 包。FT-Agent 保留 `ft_agent.core`、`ft_agent.tools`、`ft_agent.agent` 作为兼容 wrapper；费托应用自己的逻辑放在 `ft_agent.llm`、`ft_agent.pipeline` 和 `ft_agent.web` 中。
 
 ```python
 classify_node - "question" >> answer_question_node
@@ -26,11 +26,13 @@ classify_node - "statement" >> answer_statement_node
 ## 项目结构
 
 ```text
+external dependency
+  agent-core-runtime    # Node, Flow, RunContext, tools, agent-loop nodes
 src/ft_agent/
-  agent.py              # Agent runner over a Flow
-  core/                 # Node, Flow, trace primitives
+  agent.py              # agent_core.Agent 的兼容 wrapper
+  core/                 # agent_core.core 的兼容 wrapper
   llm/                  # DeepSeek/OpenAI-compatible model calls
-  tools/                # Tool decorator, schema conversion, executor, file tools
+  tools/                # agent_core.tools 的兼容 wrapper
   pipeline/             # Fischer-Tropsch catalyst research pipeline
   web/                  # FastAPI web UI and static frontend
 examples/               # Runnable examples
