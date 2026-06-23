@@ -12,9 +12,9 @@ FT-Agent has two goals:
 
 ## Repository Routes
 
-- Agent runtime: `src/ft_agent/core/`
+- Shared agent runtime: [agent-core-runtime](https://github.com/Lancetwang/agent-core-runtime)
+- Runtime compatibility wrappers: `src/ft_agent/core/`, `src/ft_agent/tools/`, `src/ft_agent/agent.py`
 - LLM integration: `src/ft_agent/llm/`
-- Tool system: `src/ft_agent/tools/`
 - Fischer-Tropsch pipeline: `src/ft_agent/pipeline/`
 - Web UI: `src/ft_agent/web/`
 - Examples: `examples/`

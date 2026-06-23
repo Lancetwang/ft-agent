@@ -5,6 +5,7 @@ description = "A minimal agent project using DeepSeek via the OpenAI SDK."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "agent-core-runtime @ https://github.com/Lancetwang/agent-core-runtime/archive/8bf92968291ba68711d2fce88f3c3865d6eae695.zip",
     "chromadb>=1.5.9",
     "fastapi>=0.137.1",
     "openai>=1.88.0",
@@ -19,3 +20,6 @@ ft-agent-web = "ft_agent.web.app:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true

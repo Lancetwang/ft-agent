@@ -2,6 +2,7 @@
 
 from agent_core.core import (
     Action,
+    AgentEvent,
     CallableNode,
     ExecResult,
     Flow,
@@ -9,15 +10,20 @@ from agent_core.core import (
     FlowRunResult,
     Node,
     Payload,
+    RunContext,
     TraceEvent,
     TraceOptions,
     TraceRecorder,
     format_trace_event,
+    get_current_context,
     make_trace_options,
+    reset_current_context,
+    set_current_context,
 )
 
 __all__ = [
     "Action",
+    "AgentEvent",
     "CallableNode",
     "ExecResult",
     "Flow",
@@ -25,9 +31,13 @@ __all__ = [
     "FlowRunResult",
     "Node",
     "Payload",
+    "RunContext",
     "TraceEvent",
     "TraceOptions",
     "TraceRecorder",
     "format_trace_event",
+    "get_current_context",
     "make_trace_options",
+    "reset_current_context",
+    "set_current_context",
 ]
