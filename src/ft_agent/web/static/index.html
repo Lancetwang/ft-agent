@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FT-AGENT</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="chat">
+        <header>
+          <div>
+            <p>FISCHER-TROPSCH AGENT</p>
+            <h1>FT-AGENT</h1>
+          </div>
+          <button id="toggle-flow" type="button">Flow</button>
+        </header>
+        <div id="messages" class="messages"></div>
+        <form id="chat-form" class="composer">
+          <textarea id="message-input" rows="1" placeholder="Ask about Fischer-Tropsch catalyst experiments..."></textarea>
+          <button type="submit" aria-label="Send">&#8593;</button>
+        </form>
+      </section>
+      <aside id="flow-panel" class="flow-panel">
+        <div class="panel-head">
+          <p>LIVE FLOW</p>
+          <button id="close-flow" type="button">Close</button>
+        </div>
+        <h2>Pipeline map</h2>
+        <div id="flow-map" class="flow-map">
+          <div class="node" data-node="RouterAgent">Router</div>
+          <div class="row">
+            <div class="node" data-node="FinalAgent">Final</div>
+            <div class="node" data-node="PlannerAgent">Planner</div>
+          </div>
+          <div class="node" data-node="WriterAgent">Writer</div>
+          <div class="row">
+            <div class="tool">Science KB</div>
+            <div class="tool">Template KB</div>
+          </div>
+          <div class="node" data-node="SupervisorAgent">Supervisor</div>
+        </div>
+        <section>
+          <h3>Artifact</h3>
+          <button id="preview-report" type="button" disabled>No report yet</button>
+          <article id="report-preview" class="report"></article>
+        </section>
+        <section>
+          <h3>Activity</h3>
+          <div id="activity" class="activity"></div>
+        </section>
+      </aside>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
